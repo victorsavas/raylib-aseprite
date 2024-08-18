@@ -4,4 +4,4 @@ A small C library which allows the user to import and draw [Aseprite](https://ww
 # Usage
 Simply include cute_aseprite.h, aseprite.c and aseprite.h in your source files.
 
-This library uses Randy Gaul's [cute_aseprite.h](https://github.com/RandyGaul/cute_headers) header to parse .ase and .aseprite files.
+The [cute_aseprite.h](https://github.com/RandyGaul/cute_headers/blob/master/cute_aseprite.h) header file used to parse .ase and .aseprite files was provided by [Randy Gaul's cute_headers repository](https://github.com/RandyGaul/cute_headers/tree/master).
