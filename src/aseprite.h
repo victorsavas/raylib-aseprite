@@ -65,13 +65,11 @@ typedef struct AnimTag
 	float timer;
 } AnimTag;
 
-
 // Load and unload functions
 
 Aseprite LoadAsepriteFromFile(const char *filename);
 Aseprite LoadAsepriteFromMemory(const void *data, int size);
 void UnloadAseprite(Aseprite ase);
-
 
 // Animationless draw functions
 
@@ -79,17 +77,16 @@ void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint);
 void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint);
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
-
 // Animation Tag functions. delta_time parameter must be provided in seconds.
 
 AnimTag CreateAnimTag(Aseprite ase, const char* tag_name);
 
 void SetAnimTagSpeed(AnimTag* anim_tag, float speed);
+
 void PlayAnimTag(AnimTag* anim_tag);
 void StopAnimTag(AnimTag* anim_tag);
-void ToggleAnimTag(AnimTag* anim_tag);
+void PauseAnimTag(AnimTag* anim_tag);
 
-void SetAnimTagSpeed(AnimTag *anim_tag, float speed);
 int AdvanceAnimTag(AnimTag *anim_tag, float delta_time);
 
 void DrawAnim(AnimTag *anim_tag, float delta_time, float x, float y, Color tint);

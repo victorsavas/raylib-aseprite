@@ -208,6 +208,7 @@ void SetAnimTagSpeed(AnimTag* anim_tag, float speed)
 
 	anim_tag->speed = speed;
 }
+
 void PlayAnimTag(AnimTag* anim_tag)
 {
 	P_ANIMTAG_CHECK(anim_tag)
@@ -220,7 +221,7 @@ void StopAnimTag(AnimTag* anim_tag)
 	
 	anim_tag->running = 0;
 }
-void ToggleAnimTag(AnimTag* anim_tag)
+void PauseAnimTag(AnimTag* anim_tag)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
