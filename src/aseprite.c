@@ -5,7 +5,7 @@
 
 #include <aseprite.h>
 
-#define P_ANIMTAG_CHECK(anim_tag) if (anim_tag == NULL) return; if (!anim_tag->ready) return;
+#define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !anim->ase.ready) return;
 
 static Aseprite _load_aseprite(ase_t *cute_ase);
 static Texture2D _get_frame_texture(Aseprite ase, int frame);
@@ -147,10 +147,77 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 // Animation Tag functions
 
-AnimTag CreateAnimTag(Aseprite ase, const char *tag_name)
+Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id)
+{
+	Animation anim =
+	{
+		.ase = ase,
+
+		.tag_mode = 1,
+		.tag_id = id,
+
+		.ready = 1,
+
+		.anim_direction = tag.anim_direction,
+		.ping_pong = tag.ping_pong,
+		
+		.from_frame = tag.from_frame,
+		.to_frame = tag.to_frame,
+		
+		.repeat = tag.repeat,
+		.speed = 1,
+		.timer = 0,
+		.running = 1
+	};
+
+	switch (anim.anim_direction)
+	{
+		case FORWARDS:
+			anim.current_frame = tag.from_frame;
+			break;
+		case REVERSE:
+			anim.current_frame = tag.to_frame;
+			break;
+	}
+
+	if (tag.repeat == 0)
+	{
+		anim.loop = 1;
+	}
+
+	return anim;
+}
+Animation CreateSimpleAnimation(Aseprite ase)
 {
 	if (!ase.ready)
-		return (AnimTag){0};
+		return (Animation){0};
+
+	return (Animation){
+		.ase = ase,
+		.ready = 1,
+
+		.current_frame = 0,
+
+		.tag_mode = 0,
+		.tag_id = -1,
+
+		.anim_direction = FORWARDS,
+		.ping_pong = 0,
+
+		.from_frame = 0,
+		.to_frame = 0,
+
+		.repeat = 0,
+
+		.running = 1,
+		.speed = 1,
+		.timer = 0
+	};
+}
+Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
+{
+	if (!ase.ready)
+		return (Animation){0};
 
 	// Please don't name two tags with the same name.
 
@@ -160,157 +227,196 @@ AnimTag CreateAnimTag(Aseprite ase, const char *tag_name)
 		const char *current_tag_name = current_tag.name;
 
 		if (strcmp(tag_name, current_tag_name) == 0)
-		{
-			AnimTag anim_tag =
-			{
-				.ase = ase,
-
-				.ready = 1,
-				.id = i,
-
-				.anim_direction = current_tag.anim_direction,
-				.ping_pong = current_tag.ping_pong,
-				
-				.from_frame = current_tag.from_frame,
-				.to_frame = current_tag.to_frame,
-				
-				.repeat = current_tag.repeat,
-				.speed = 1,
-				.timer = 0,
-				.running = 1
-			};
-
-			switch (anim_tag.anim_direction)
-			{
-				case FORWARDS:
-					anim_tag.current_frame = current_tag.from_frame;
-					break;
-				case REVERSE:
-					anim_tag.current_frame = current_tag.to_frame;
-					break;
-				default:
-					break;
-			}
-			
-			return anim_tag;
+		{	
+			return _create_animation_from_tag(ase, current_tag, i);
 		}
 	}
 
 	// If no tags are found, an empty tag is returned as default.
 
-	return (AnimTag){0};
+	return (Animation){0};
+}
+Animation CreateAnimationTagId(Aseprite ase, int tag_id)
+{
+	if (!ase.ready || tag_id >= ase.tag_count)
+		return (Animation){0};
+
+	Tag tag = ase.tags[tag_id];
+
+	return _create_animation_from_tag(ase, tag, tag_id);
 }
 
-void SetAnimTagSpeed(AnimTag *anim_tag, float speed)
+void SetAnimationSpeed(Animation *anim, float speed)
 {
-	P_ANIMTAG_CHECK(anim_tag)
+	P_ANIMATION_CHECK(anim)
 	
 	if (speed < 0)
-		anim_tag->anim_direction = !anim_tag->anim_direction;
+		anim->anim_direction = !anim->anim_direction;
 
-	anim_tag->speed = speed;
+	anim->speed = speed;
 }
 
-void PlayAnimTag(AnimTag *anim_tag)
+void PlayAnimation(Animation *anim)
 {
-	P_ANIMTAG_CHECK(anim_tag)
+	P_ANIMATION_CHECK(anim)
 	
-	anim_tag->running = 1;
+	anim->running = 1;
 }
-void StopAnimTag(AnimTag *anim_tag)
+void StopAnimation(Animation *anim)
 {
-	P_ANIMTAG_CHECK(anim_tag)
+	P_ANIMATION_CHECK(anim)
 	
-	anim_tag->running = 0;
+	anim->running = 0;
 }
-void PauseAnimTag(AnimTag *anim_tag)
+void PauseAnimation(Animation *anim)
 {
-	P_ANIMTAG_CHECK(anim_tag)
+	P_ANIMATION_CHECK(anim)
 
-	anim_tag->running = !anim_tag->running; // bit magic pt 2
+	anim->running = !anim->running; // bit magic pt 2
 }
 
-void AdvanceAnimTag(AnimTag *anim_tag)
+void _advance_animation_tag_mode(Animation *anim)
 {
-	P_ANIMTAG_CHECK(anim_tag)
+	switch (anim->anim_direction)
+	{
+		case FORWARDS:
+			anim->current_frame++;
+
+			if (anim->current_frame > anim->to_frame)
+			{
+				if (!anim->loop)
+					anim->repeat--;
+
+				if (anim->ping_pong)
+				{
+					anim->anim_direction = REVERSE;
+
+					anim->current_frame -= 2;
+				}
+				else
+					anim->current_frame = anim->from_frame;
+			}
+			break;
+		case REVERSE:
+			anim->current_frame--;
+
+			if (anim->current_frame < anim->from_frame)
+			{
+				if (!anim->loop)
+					anim->repeat--;
+
+				if (anim->ping_pong)
+				{
+					anim->anim_direction = FORWARDS;
+
+					anim->current_frame += 2;
+				}
+				else
+					anim->current_frame = anim->to_frame;
+			}
+			break;
+	}
+
+	if (anim->repeat == 0 && !anim->loop)	// If the tag loops are exhausted
+	{
+		int next_tag_id = anim->tag_id + 1;
+		
+		if (next_tag_id >= anim->ase.tag_count)
+			next_tag_id = 0;
+
+		anim->tag_id = next_tag_id;
+
+		anim->current_frame = anim->to_frame + 1;
+
+		if (anim->current_frame >= anim->ase.frame_count)
+			anim->current_frame = 0;
+		
+		Tag next_tag = anim->ase.tags[next_tag_id];
+
+		anim->anim_direction = next_tag.anim_direction;
+		anim->ping_pong = next_tag.ping_pong;
+
+		anim->from_frame = next_tag.from_frame;
+		anim->to_frame = next_tag.to_frame;
+
+		anim->repeat = next_tag.repeat;
+
+		if (next_tag.from_frame <= anim->current_frame && anim->current_frame <= next_tag.to_frame)
+		{
+			switch (next_tag.anim_direction)
+			{
+				case FORWARDS:
+					anim->current_frame = next_tag.from_frame;
+					break;
+				case REVERSE:
+					anim->current_frame = next_tag.to_frame;
+					break;
+			}
+		}
+		else
+			anim->tag_mode = 0;
+	}
+}
+
+void AdvanceAnimation(Animation *anim)
+{
+	P_ANIMATION_CHECK(anim)
 
 	float delta_time = GetFrameTime();
 
-	if (delta_time == 0 || anim_tag->speed == 0 || !anim_tag->running)
+	if (delta_time == 0 || anim->speed == 0 || !anim->running)
 		return;
 
-	Aseprite ase = anim_tag->ase;
+	Aseprite ase = anim->ase;
 
-	int frame = anim_tag->current_frame;
+	int frame = anim->current_frame;
 
-	float miliseconds = (int)(1000.f * delta_time * anim_tag->speed);
-	anim_tag->timer += miliseconds;
+	float miliseconds = (int)(1000.f * delta_time * anim->speed);
+	anim->timer += miliseconds;
 
 	float frame_duration = (float)ase.frames[frame].duration_milliseconds;
 
-	if (anim_tag->timer >= frame_duration)
-	{
-		anim_tag->timer -= frame_duration;
+	if (anim->timer < frame_duration)
+		return;
 	
-		switch (anim_tag->anim_direction)
+	anim->timer -= frame_duration;
+
+	if (anim->tag_mode)
+	{
+		_advance_animation_tag_mode(anim);
+		return;
+	}
+
+	anim->current_frame++;
+
+	if (anim->current_frame >= anim->ase.frame_count)
+		anim->current_frame = 0;
+	
+	if (anim->tag_id != -1 && anim->current_frame == anim->from_frame)
+	{
+		anim->tag_mode = 1;
+
+		switch (anim->anim_direction)
 		{
 			case FORWARDS:
-				anim_tag->current_frame++;
-
-				if (anim_tag->current_frame > anim_tag->to_frame)
-				{
-					if (anim_tag->ping_pong)
-					{
-						anim_tag->anim_direction = REVERSE;
-
-						anim_tag->current_frame -= 2;
-					}
-					else
-						anim_tag->current_frame = anim_tag->from_frame;
-				}
+				anim->current_frame = anim->from_frame;
 				break;
 			case REVERSE:
-				anim_tag->current_frame--;
-
-				if (anim_tag->current_frame < anim_tag->from_frame)
-				{
-					if (anim_tag->ping_pong)
-					{
-						anim_tag->anim_direction = FORWARDS;
-
-						anim_tag->current_frame += 2;
-					}
-					else
-						anim_tag->current_frame = anim_tag->to_frame;
-				}
+				anim->current_frame = anim->to_frame;
 				break;
 		}
 	}
-
-	return;
 }
 
-void DrawAnim(AnimTag *anim_tag, float x, float y, Color tint)
+void DrawAnimation(Animation anim, float x, float y, Color tint)
 {
-	P_ANIMTAG_CHECK(anim_tag)
-
-	AdvanceAnimTag(anim_tag);
-
-	DrawAseprite(anim_tag->ase, anim_tag->current_frame, x, y, tint);
+	DrawAseprite(anim.ase, anim.current_frame, x, y, tint);
 }
-void DrawAnimV(AnimTag *anim_tag, Vector2 pos, Color tint)
+void DrawAnimationV(Animation anim, Vector2 pos, Color tint)
 {
-	P_ANIMTAG_CHECK(anim_tag)
-
-	AdvanceAnimTag(anim_tag);
-
-	DrawAsepriteV(anim_tag->ase, anim_tag->current_frame, pos, tint);
+	DrawAsepriteV(anim.ase, anim.current_frame, pos, tint);
 }
-void DrawAnimScale(AnimTag *anim_tag, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimationScale(Animation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
-	P_ANIMTAG_CHECK(anim_tag)
-
-	AdvanceAnimTag(anim_tag);
-
-	DrawAsepriteScale(anim_tag->ase, anim_tag->current_frame, position, origin, x_scale, y_scale, rotation, tint);
+	DrawAsepriteScale(anim.ase, anim.current_frame, position, origin, x_scale, y_scale, rotation, tint);
 }

@@ -43,27 +43,31 @@ typedef struct Aseprite
 } Aseprite;
 
 // Data structure for playing animations.
-typedef struct AnimTag
+typedef struct Animation
 {
 	Aseprite ase;
-
 	int ready;
-	int id;
+
+	int current_frame;
+
+	int running;
+	float speed;
+	float timer;
+
+	// Tag data
+
+	int tag_mode;
+	int tag_id;
 
 	AnimDirection anim_direction;
 	int ping_pong;
-
-	int current_frame;
 
 	int from_frame;
 	int to_frame;
 
 	int repeat;
-
-	int running;
-	float speed;
-	float timer;
-} AnimTag;
+	int loop;
+} Animation;
 
 // Load and unload functions.
 
@@ -77,18 +81,20 @@ void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint);
 void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint);
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
-// Animation Tag functions.	
+// Animation functions.	
 
-AnimTag CreateAnimTag(Aseprite ase, const char *tag_name);
+Animation CreateSimpleAnimation(Aseprite ase);
+Animation CreateAnimationTag(Aseprite ase, const char *tag_name);
+Animation CreateAnimationTagId(Aseprite ase, int tag_id);
 
-void SetAnimTagSpeed(AnimTag *anim_tag, float speed);
+void SetAnimationSpeed(Animation *anim, float speed);
 
-void PlayAnimTag(AnimTag *anim_tag);
-void StopAnimTag(AnimTag *anim_tag);
-void PauseAnimTag(AnimTag *anim_tag);
+void PlayAnimation(Animation *anim);
+void StopAnimation(Animation *anim);
+void PauseAnimation(Animation *anim);
 
-void AdvanceAnimTag(AnimTag *anim_tag);
+void AdvanceAnimation(Animation *anim);
 
-void DrawAnim(AnimTag *anim_tag, float x, float y, Color tint);
-void DrawAnimV(AnimTag *anim_tag, Vector2 pos, Color tint);
-void DrawAnimScale(AnimTag *anim_tag, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
+void DrawAnimation(Animation anim, float x, float y, Color tint);
+void DrawAnimationV(Animation anim, Vector2 pos, Color tint);
+void DrawAnimationScale(Animation anim, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
