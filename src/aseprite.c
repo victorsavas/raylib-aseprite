@@ -9,6 +9,8 @@
 
 static Aseprite _load_aseprite(ase_t *cute_ase);
 static Texture2D _get_frame_texture(Aseprite ase, int frame);
+static Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id);
+static void _advance_animation_tag_mode(Animation *anim);
 
 // Memory management functions
 
@@ -272,7 +274,7 @@ void PauseAnimation(Animation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
-	anim->running = !anim->running; // bit magic pt 2
+	anim->running = !anim->running;
 }
 
 void _advance_animation_tag_mode(Animation *anim)
