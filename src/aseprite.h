@@ -28,9 +28,10 @@ typedef struct Frame
 	int duration_milliseconds;
 } Frame;
 
+// Centralized data structure that contains relevant Aseprite file data.
 typedef struct Aseprite
 {
-	int loaded;
+	int ready;
 
 	Frame* frames;
 	int frame_count;
@@ -43,7 +44,7 @@ typedef struct AnimTag
 {
 	Aseprite ase;
 
-	int loaded;
+	int ready;
 	int id;
 
 	AnimDirection anim_direction;
@@ -55,14 +56,16 @@ typedef struct AnimTag
 	int to_frame;
 
 	int repeat;
+
+	int running;
 	float speed;
 	float timer;
-
 } AnimTag;
 
 // Memory management functions
 
 Aseprite LoadAsepriteFromFile(const char *filename);
+Aseprite LoadAsepriteFromMemory(const void *data, int size);
 void UnloadAseprite(Aseprite ase);
 
 // Static draw functions
@@ -75,6 +78,12 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, flo
 
 AnimTag CreateAnimTag(Aseprite ase, const char* tag_name);
 
+void SetAnimTagSpeed(AnimTag* anim_tag, float speed);
+void PlayAnimTag(AnimTag* anim_tag);
+void StopAnimTag(AnimTag* anim_tag);
+void ToggleAnimTag(AnimTag* anim_tag);
+
+void SetAnimTagSpeed(AnimTag *anim_tag, float speed);
 int AdvanceAnimTag(AnimTag *anim_tag, float delta_time);
 
 void DrawAnim(AnimTag *anim_tag, float delta_time, float x, float y, Color tint);

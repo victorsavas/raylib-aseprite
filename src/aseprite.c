@@ -5,17 +5,16 @@
 
 #include <aseprite.h>
 
+static Aseprite _load_aseprite(ase_t* cute_ase);
 static Texture2D _get_frame_texture(Aseprite ase, int frame);
 
 // Memory management functions
 
-Aseprite LoadAsepriteFromFile(const char *filename)
+Aseprite _load_aseprite(ase_t* cute_ase)
 {
-	ase_t *cute_ase = cute_aseprite_load_from_file(filename, NULL);
-
 	if (cute_ase == NULL)
 		return (Aseprite){0};
-
+	
 	Aseprite ase = {0};
 
 	// Load frames
@@ -60,11 +59,28 @@ Aseprite LoadAsepriteFromFile(const char *filename)
 		ase.tags[i].name = strdup(tag.name);
 	}
 
-	// End
+	ase.ready = 1;
+
+	return ase;
+}
+
+Aseprite LoadAsepriteFromFile(const char *filename)
+{
+	ase_t *cute_ase = cute_aseprite_load_from_file(filename, NULL);
+
+	Aseprite ase = _load_aseprite(cute_ase);
 
 	cute_aseprite_free(cute_ase);
 
-	ase.loaded = 1;
+	return ase;
+}
+Aseprite LoadAsepriteFromMemory(const void *data, int size)
+{
+	ase_t *cute_ase = cute_aseprite_load_from_memory(data, size, NULL);
+
+	Aseprite ase = _load_aseprite(cute_ase);
+
+	cute_aseprite_free(cute_ase);
 
 	return ase;
 }
@@ -93,7 +109,7 @@ void UnloadAseprite(Aseprite ase)
 
 Texture2D _get_frame_texture(Aseprite ase, int frame)
 {
-	if ((frame >= ase.frame_count) || !(ase.loaded))
+	if ((frame >= ase.frame_count) || !(ase.ready))
 		return (Texture2D){0};
 	
 	return ase.frames[frame].texture;
@@ -128,7 +144,7 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 {
-	if (!ase.loaded)
+	if (!ase.ready)
 		return (AnimTag){0};
 
 	// Please don't name two tags with the same name.
@@ -144,7 +160,7 @@ AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 			{
 				.ase = ase,
 
-				.loaded = 1,
+				.ready = 1,
 				.id = i,
 
 				.anim_direction = current_tag.anim_direction,
@@ -155,7 +171,8 @@ AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 				
 				.repeat = current_tag.repeat,
 				.speed = 1,
-				.timer = 0
+				.timer = 0,
+				.running = 1
 			};
 
 			switch (anim_tag.anim_direction)
@@ -179,19 +196,42 @@ AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 	return (AnimTag){0};
 }
 
+void SetAnimTagSpeed(AnimTag* anim_tag, float speed)
+{
+	if (speed < 0)
+		anim_tag->anim_direction = (anim_tag->anim_direction ^ 1) & 1; // bit magic
+
+	anim_tag->speed = speed;
+}
+void PlayAnimTag(AnimTag* anim_tag)
+{
+	anim_tag->running = 1;
+}
+void StopAnimTag(AnimTag* anim_tag)
+{
+	anim_tag->running = 0;
+}
+void ToggleAnimTag(AnimTag* anim_tag)
+{
+	anim_tag->running = (anim_tag->running ^ 1) & 1; // bit magic pt 2
+}
+
 int AdvanceAnimTag(AnimTag *anim_tag, float delta_time)
 {
-	if (delta_time == 0)
+	if (anim_tag == NULL)
+		return -1;
+
+	if (delta_time == 0 || anim_tag->speed == 0 || !anim_tag->running)
 		return anim_tag->current_frame;
 
-	if (!anim_tag->loaded)
+	if (!anim_tag->ready)
 		return -1;
 
 	Aseprite ase = anim_tag->ase;
 
 	int frame = anim_tag->current_frame;
 
-	float miliseconds = (int)(1000.f * delta_time);
+	float miliseconds = (int)(1000.f * delta_time * anim_tag->speed);
 	anim_tag->timer += miliseconds;
 
 	float frame_duration = (float)ase.frames[frame].duration_milliseconds;
