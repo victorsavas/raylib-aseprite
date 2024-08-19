@@ -89,6 +89,6 @@ void PauseAnimTag(AnimTag* anim_tag);
 
 void AdvanceAnimTag(AnimTag *anim_tag);
 
-void DrawAnim(AnimTag *anim_tag, int advance, float x, float y, Color tint);
-void DrawAnimV(AnimTag* anim_tag, int advance, Vector2 pos, Color tint);
-void DrawAnimScale(AnimTag *anim_tag, int advance, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
+void DrawAnim(AnimTag *anim_tag, float x, float y, Color tint);
+void DrawAnimV(AnimTag* anim_tag, Vector2 pos, Color tint);
+void DrawAnimScale(AnimTag *anim_tag, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);

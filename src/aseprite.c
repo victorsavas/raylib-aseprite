@@ -287,30 +287,27 @@ void AdvanceAnimTag(AnimTag *anim_tag)
 	return;
 }
 
-void DrawAnim(AnimTag *anim_tag, int advance, float x, float y, Color tint)
+void DrawAnim(AnimTag *anim_tag, float x, float y, Color tint)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	if (advance)
-		AdvanceAnimTag(anim_tag);
+	AdvanceAnimTag(anim_tag);
 
 	DrawAseprite(anim_tag->ase, anim_tag->current_frame, x, y, tint);
 }
-void DrawAnimV(AnimTag *anim_tag, int advance, Vector2 pos, Color tint)
+void DrawAnimV(AnimTag *anim_tag, Vector2 pos, Color tint)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	if (advance)
-		AdvanceAnimTag(anim_tag);
+	AdvanceAnimTag(anim_tag);
 
 	DrawAsepriteV(anim_tag->ase, anim_tag->current_frame, pos, tint);
 }
-void DrawAnimScale(AnimTag *anim_tag, int advance, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimScale(AnimTag *anim_tag, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	if (advance)
-		AdvanceAnimTag(anim_tag);
+	AdvanceAnimTag(anim_tag);
 
 	DrawAsepriteScale(anim_tag->ase, anim_tag->current_frame, position, origin, x_scale, y_scale, rotation, tint);
 }
