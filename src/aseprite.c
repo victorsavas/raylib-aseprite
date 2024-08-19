@@ -6,7 +6,6 @@
 #include <aseprite.h>
 
 #define P_ANIMTAG_CHECK(anim_tag) if (anim_tag == NULL) return; if (!anim_tag->ready) return;
-#define P_ANIMTAG_CHECK_RETURN(anim_tag, r) if (anim_tag == NULL) return r; if (!anim_tag->ready) return r;
 
 static Aseprite _load_aseprite(ase_t* cute_ase);
 static Texture2D _get_frame_texture(Aseprite ase, int frame);
@@ -228,12 +227,14 @@ void PauseAnimTag(AnimTag* anim_tag)
 	anim_tag->running = (anim_tag->running ^ 1) & 1; // bit magic pt 2
 }
 
-int AdvanceAnimTag(AnimTag *anim_tag, float delta_time)
+void AdvanceAnimTag(AnimTag *anim_tag)
 {
-	P_ANIMTAG_CHECK_RETURN(anim_tag, -1)
+	P_ANIMTAG_CHECK(anim_tag)
+
+	float delta_time = GetFrameTime();
 
 	if (delta_time == 0 || anim_tag->speed == 0 || !anim_tag->running)
-		return anim_tag->current_frame;
+		return;
 
 	Aseprite ase = anim_tag->ase;
 
@@ -280,35 +281,36 @@ int AdvanceAnimTag(AnimTag *anim_tag, float delta_time)
 						anim_tag->current_frame = anim_tag->to_frame;
 				}
 				break;
-			default:
-				break;
 		}
 	}
 
-	return frame;
+	return;
 }
 
-void DrawAnim(AnimTag *anim_tag, float delta_time, float x, float y, Color tint)
+void DrawAnim(AnimTag *anim_tag, int advance, float x, float y, Color tint)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	int frame = AdvanceAnimTag(anim_tag, delta_time);
+	if (advance)
+		AdvanceAnimTag(anim_tag);
 
-	DrawAseprite(anim_tag->ase, frame, x, y, tint);
+	DrawAseprite(anim_tag->ase, anim_tag->current_frame, x, y, tint);
 }
-void DrawAnimV(AnimTag *anim_tag, float delta_time, Vector2 pos, Color tint)
+void DrawAnimV(AnimTag *anim_tag, int advance, Vector2 pos, Color tint)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	int frame = AdvanceAnimTag(anim_tag, delta_time);
+	if (advance)
+		AdvanceAnimTag(anim_tag);
 
-	DrawAsepriteV(anim_tag->ase, frame, pos, tint);
+	DrawAsepriteV(anim_tag->ase, anim_tag->current_frame, pos, tint);
 }
-void DrawAnimScale(AnimTag *anim_tag, float delta_time, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimScale(AnimTag *anim_tag, int advance, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	int frame = AdvanceAnimTag(anim_tag, delta_time);
+	if (advance)
+		AdvanceAnimTag(anim_tag);
 
-	DrawAsepriteScale(anim_tag->ase, frame, position, origin, x_scale, y_scale, rotation, tint);
+	DrawAsepriteScale(anim_tag->ase, anim_tag->current_frame, position, origin, x_scale, y_scale, rotation, tint);
 }

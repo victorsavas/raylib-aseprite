@@ -77,7 +77,7 @@ void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint);
 void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint);
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
-// Animation Tag functions. delta_time parameter must be provided in seconds.
+// Animation Tag functions.	
 
 AnimTag CreateAnimTag(Aseprite ase, const char* tag_name);
 
@@ -87,8 +87,8 @@ void PlayAnimTag(AnimTag* anim_tag);
 void StopAnimTag(AnimTag* anim_tag);
 void PauseAnimTag(AnimTag* anim_tag);
 
-int AdvanceAnimTag(AnimTag *anim_tag, float delta_time);
+void AdvanceAnimTag(AnimTag *anim_tag);
 
-void DrawAnim(AnimTag *anim_tag, float delta_time, float x, float y, Color tint);
-void DrawAnimV(AnimTag* anim_tag, float delta_time, Vector2 pos, Color tint);
-void DrawAnimScale(AnimTag *anim_tag, float delta_time, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
+void DrawAnim(AnimTag *anim_tag, int advance, float x, float y, Color tint);
+void DrawAnimV(AnimTag* anim_tag, int advance, Vector2 pos, Color tint);
+void DrawAnimScale(AnimTag *anim_tag, int advance, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
