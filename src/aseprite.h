@@ -79,6 +79,7 @@ void UnloadAseprite(Aseprite ase);
 
 void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint);
 void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint);
+void DrawAsepriteEx(Aseprite ase, int frame, Vector2 pos, float rotation, float scale, Color tint);
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
 // Animation functions.	
@@ -97,4 +98,5 @@ void AdvanceAnimation(Animation *anim);
 
 void DrawAnimation(Animation anim, float x, float y, Color tint);
 void DrawAnimationV(Animation anim, Vector2 pos, Color tint);
+void DrawAnimationEx(Animation anim, Vector2 pos, float rotation, float scale, Color tint);
 void DrawAnimationScale(Animation anim, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);

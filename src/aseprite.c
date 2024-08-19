@@ -134,6 +134,12 @@ void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint)
 
 	DrawTextureV(texture, pos, tint);
 }
+void DrawAsepriteEx(Aseprite ase, int frame, Vector2 pos, float rotation, float scale, Color tint)
+{
+	Texture2D texture = _get_frame_texture(ase, frame);
+
+	DrawTextureEx(texture, pos, rotation, scale, tint);
+}
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
 	Texture2D texture = _get_frame_texture(ase, frame);
@@ -417,6 +423,10 @@ void DrawAnimation(Animation anim, float x, float y, Color tint)
 void DrawAnimationV(Animation anim, Vector2 pos, Color tint)
 {
 	DrawAsepriteV(anim.ase, anim.current_frame, pos, tint);
+}
+void DrawAnimationEx(Animation anim, Vector2 pos, float rotation, float scale, Color tint)
+{
+	DrawAsepriteEx(anim.ase, anim.current_frame, pos, rotation, scale, tint);
 }
 void DrawAnimationScale(Animation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
