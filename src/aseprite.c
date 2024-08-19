@@ -6,7 +6,6 @@
 #include <aseprite.h>
 
 static Texture2D _get_frame_texture(Aseprite ase, int frame);
-static int _advance_animtag(AnimTag *anim_tag, float delta_time, Aseprite ase);
 
 // Memory management functions
 
@@ -50,7 +49,8 @@ Aseprite LoadAsepriteFromFile(const char *filename)
 	{
 		ase_tag_t tag = (cute_ase->tags)[i];
 
-		ase.tags[i].anim_direction = tag.loop_animation_direction; // Caution: the enum types might not be compatible in the future
+		ase.tags[i].anim_direction = tag.loop_animation_direction & 1;
+		ase.tags[i].ping_pong = (tag.loop_animation_direction & 2) >> 1;
 
 		ase.tags[i].from_frame = tag.from_frame;
 		ase.tags[i].to_frame = tag.to_frame;
@@ -63,6 +63,8 @@ Aseprite LoadAsepriteFromFile(const char *filename)
 	// End
 
 	cute_aseprite_free(cute_ase);
+
+	ase.loaded = 1;
 
 	return ase;
 }
@@ -91,7 +93,7 @@ void UnloadAseprite(Aseprite ase)
 
 Texture2D _get_frame_texture(Aseprite ase, int frame)
 {
-	if (frame >= ase.frame_count)
+	if ((frame >= ase.frame_count) || !(ase.loaded))
 		return (Texture2D){0};
 	
 	return ase.frames[frame].texture;
@@ -126,6 +128,9 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 {
+	if (!ase.loaded)
+		return (AnimTag){0};
+
 	// Please don't name two tags with the same name.
 
 	for (int i = 0; i < ase.tag_count; i++)
@@ -137,33 +142,28 @@ AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 		{
 			AnimTag anim_tag =
 			{
+				.ase = ase,
+
+				.loaded = 1,
 				.id = i,
+
 				.anim_direction = current_tag.anim_direction,
-				.current_direction = current_tag.anim_direction,
+				.ping_pong = current_tag.ping_pong,
+				
 				.from_frame = current_tag.from_frame,
 				.to_frame = current_tag.to_frame,
-				.frame_count = current_tag.to_frame - current_tag.from_frame + 1,
+				
 				.repeat = current_tag.repeat,
+				.speed = 1,
 				.timer = 0
 			};
 
-			switch (current_tag.anim_direction)
+			switch (anim_tag.anim_direction)
 			{
 				case FORWARDS:
 					anim_tag.current_frame = current_tag.from_frame;
 					break;
-
 				case REVERSE:
-					anim_tag.current_frame = current_tag.to_frame;
-					break;
-
-				case PINGPONG:
-					anim_tag.current_direction = FORWARDS;
-					anim_tag.current_frame = current_tag.from_frame;
-					break;
-				case REVERSEPINGPONG:
-					anim_tag.anim_direction = PINGPONG;
-					anim_tag.current_direction = REVERSE;
 					anim_tag.current_frame = current_tag.to_frame;
 					break;
 				default:
@@ -179,15 +179,17 @@ AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 	return (AnimTag){0};
 }
 
-int _advance_animtag(AnimTag *anim_tag, float delta_time, Aseprite ase)
+int AdvanceAnimTag(AnimTag *anim_tag, float delta_time)
 {
-	if (ase.frame_count == 0 || anim_tag->frame_count == 0)
+	if (delta_time == 0)
+		return anim_tag->current_frame;
+
+	if (!anim_tag->loaded)
 		return -1;
 
-	int frame = anim_tag->current_frame;
+	Aseprite ase = anim_tag->ase;
 
-	if (anim_tag->frame_count == 1)
-		return frame;
+	int frame = anim_tag->current_frame;
 
 	float miliseconds = (int)(1000.f * delta_time);
 	anim_tag->timer += miliseconds;
@@ -198,16 +200,16 @@ int _advance_animtag(AnimTag *anim_tag, float delta_time, Aseprite ase)
 	{
 		anim_tag->timer -= frame_duration;
 	
-		switch (anim_tag->current_direction)
+		switch (anim_tag->anim_direction)
 		{
 			case FORWARDS:
 				anim_tag->current_frame++;
 
 				if (anim_tag->current_frame > anim_tag->to_frame)
 				{
-					if (anim_tag->anim_direction == PINGPONG)
+					if (anim_tag->ping_pong)
 					{
-						anim_tag->current_direction = REVERSE;
+						anim_tag->anim_direction = REVERSE;
 
 						anim_tag->current_frame -= 2;
 					}
@@ -220,9 +222,9 @@ int _advance_animtag(AnimTag *anim_tag, float delta_time, Aseprite ase)
 
 				if (anim_tag->current_frame < anim_tag->from_frame)
 				{
-					if (anim_tag->anim_direction == PINGPONG)
+					if (anim_tag->ping_pong)
 					{
-						anim_tag->current_direction = FORWARDS;
+						anim_tag->anim_direction = FORWARDS;
 
 						anim_tag->current_frame += 2;
 					}
@@ -230,7 +232,6 @@ int _advance_animtag(AnimTag *anim_tag, float delta_time, Aseprite ase)
 						anim_tag->current_frame = anim_tag->to_frame;
 				}
 				break;
-			case PINGPONG:
 			default:
 				break;
 		}
@@ -239,21 +240,21 @@ int _advance_animtag(AnimTag *anim_tag, float delta_time, Aseprite ase)
 	return frame;
 }
 
-void DrawAnim(Aseprite ase, AnimTag *anim_tag, float delta_time, float x, float y, Color tint)
+void DrawAnim(AnimTag *anim_tag, float delta_time, float x, float y, Color tint)
 {
-	int frame = _advance_animtag(anim_tag, delta_time, ase);
+	int frame = AdvanceAnimTag(anim_tag, delta_time);
 
-	DrawAseprite(ase, frame, x, y, tint);
+	DrawAseprite(anim_tag->ase, frame, x, y, tint);
 }
-void DrawAnimV(Aseprite ase, AnimTag *anim_tag, float delta_time, Vector2 pos, Color tint)
+void DrawAnimV(AnimTag *anim_tag, float delta_time, Vector2 pos, Color tint)
 {
-	int frame = _advance_animtag(anim_tag, delta_time, ase);
+	int frame = AdvanceAnimTag(anim_tag, delta_time);
 
-	DrawAsepriteV(ase, frame, pos, tint);
+	DrawAsepriteV(anim_tag->ase, frame, pos, tint);
 }
-void DrawAnimScale(Aseprite ase, AnimTag *anim_tag, float delta_time, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimScale(AnimTag *anim_tag, float delta_time, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
-	int frame = _advance_animtag(anim_tag, delta_time, ase);
+	int frame = AdvanceAnimTag(anim_tag, delta_time);
 
-	DrawAsepriteScale(ase, frame, position, origin, x_scale, y_scale, rotation, tint);
+	DrawAsepriteScale(anim_tag->ase, frame, position, origin, x_scale, y_scale, rotation, tint);
 }
