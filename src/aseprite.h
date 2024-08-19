@@ -9,6 +9,7 @@ typedef enum AnimDirection
 	REVERSE
 } AnimDirection;
 
+// An Aseprite file tag data structure
 typedef struct Tag
 {
 	AnimDirection anim_direction;
@@ -22,6 +23,7 @@ typedef struct Tag
 	const char* name;
 } Tag;
 
+// A single Aseprite file frame data structure
 typedef struct Frame
 {
 	Texture texture;
@@ -40,6 +42,7 @@ typedef struct Aseprite
 	int tag_count;
 } Aseprite;
 
+// Data structure for playing animations.
 typedef struct AnimTag
 {
 	Aseprite ase;
@@ -62,17 +65,20 @@ typedef struct AnimTag
 	float timer;
 } AnimTag;
 
-// Memory management functions
+
+// Load and unload functions
 
 Aseprite LoadAsepriteFromFile(const char *filename);
 Aseprite LoadAsepriteFromMemory(const void *data, int size);
 void UnloadAseprite(Aseprite ase);
 
-// Static draw functions
+
+// Animationless draw functions
 
 void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint);
 void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint);
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
+
 
 // Animation Tag functions. delta_time parameter must be provided in seconds.
 
