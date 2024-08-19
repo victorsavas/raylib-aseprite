@@ -7,12 +7,12 @@
 
 #define P_ANIMTAG_CHECK(anim_tag) if (anim_tag == NULL) return; if (!anim_tag->ready) return;
 
-static Aseprite _load_aseprite(ase_t* cute_ase);
+static Aseprite _load_aseprite(ase_t *cute_ase);
 static Texture2D _get_frame_texture(Aseprite ase, int frame);
 
 // Memory management functions
 
-Aseprite _load_aseprite(ase_t* cute_ase)
+Aseprite _load_aseprite(ase_t *cute_ase)
 {
 	if (cute_ase == NULL)
 		return (Aseprite){0};
@@ -68,6 +68,9 @@ Aseprite _load_aseprite(ase_t* cute_ase)
 
 Aseprite LoadAsepriteFromFile(const char *filename)
 {
+	if (!FileExists(filename))
+		return (Aseprite){0};
+
 	ase_t *cute_ase = cute_aseprite_load_from_file(filename, NULL);
 
 	Aseprite ase = _load_aseprite(cute_ase);
@@ -144,7 +147,7 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 // Animation Tag functions
 
-AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
+AnimTag CreateAnimTag(Aseprite ase, const char *tag_name)
 {
 	if (!ase.ready)
 		return (AnimTag){0};
@@ -198,33 +201,33 @@ AnimTag CreateAnimTag(Aseprite ase, const char* tag_name)
 	return (AnimTag){0};
 }
 
-void SetAnimTagSpeed(AnimTag* anim_tag, float speed)
+void SetAnimTagSpeed(AnimTag *anim_tag, float speed)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 	
 	if (speed < 0)
-		anim_tag->anim_direction = (anim_tag->anim_direction ^ 1) & 1; // bit magic
+		anim_tag->anim_direction = !anim_tag->anim_direction;
 
 	anim_tag->speed = speed;
 }
 
-void PlayAnimTag(AnimTag* anim_tag)
+void PlayAnimTag(AnimTag *anim_tag)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 	
 	anim_tag->running = 1;
 }
-void StopAnimTag(AnimTag* anim_tag)
+void StopAnimTag(AnimTag *anim_tag)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 	
 	anim_tag->running = 0;
 }
-void PauseAnimTag(AnimTag* anim_tag)
+void PauseAnimTag(AnimTag *anim_tag)
 {
 	P_ANIMTAG_CHECK(anim_tag)
 
-	anim_tag->running = (anim_tag->running ^ 1) & 1; // bit magic pt 2
+	anim_tag->running = !anim_tag->running; // bit magic pt 2
 }
 
 void AdvanceAnimTag(AnimTag *anim_tag)
