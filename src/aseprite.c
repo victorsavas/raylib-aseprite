@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <raylib.h>
 
 #define CUTE_ASEPRITE_IMPLEMENTATION
@@ -13,7 +14,7 @@ static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
 
 static int _aseprite_flags_check(LoadFlags flags, LoadFlags check);
 
-static Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id);
+static Animation _create_animation_from_tag(Aseprite ase, Tag tag);
 static void _advance_animation_tag_mode(Animation *anim);
 
 #define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !_aseprite_flags_check(anim->ase.flags, ASEPRITE_LOAD_TAGS)) return;
@@ -114,6 +115,9 @@ void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 	{
 		ase_tag_t tag = (cute_ase->tags)[i];
 
+		ase->tags[i].id = i;
+		ase->tags[i].name = strdup(tag.name);
+
 		ase->tags[i].anim_direction = tag.loop_animation_direction & 1;
 		ase->tags[i].ping_pong = (tag.loop_animation_direction & 2) >> 1;
 
@@ -121,8 +125,7 @@ void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 		ase->tags[i].to_frame = tag.to_frame;
 
 		ase->tags[i].repeat = tag.repeat;
-
-		ase->tags[i].name = strdup(tag.name);
+		ase->tags[i].loop = !tag.repeat;
 	}
 }
 
@@ -217,7 +220,7 @@ void DrawAsepriteEx(Aseprite ase, int frame, Vector2 pos, float rotation, float 
 		.height = source.height * scale
 	};
 
-	DrawTexturePro(texture, source, dest, pos, rotation, WHITE);
+	DrawTexturePro(texture, source, dest, (Vector2){0,0}, rotation, WHITE);
 }
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
@@ -246,30 +249,22 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 // Animation Tag functions
 
-Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id)
+Animation _create_animation_from_tag(Aseprite ase, Tag tag)
 {
 	Animation anim =
 	{
 		.ase = ase,
-
-		.tag_mode = 1,
-		.tag_id = id,
-
 		.ready = 1,
 
-		.anim_direction = tag.anim_direction,
-		.ping_pong = tag.ping_pong,
-		
-		.from_frame = tag.from_frame,
-		.to_frame = tag.to_frame,
-		
-		.repeat = tag.repeat,
+		.running = 1,
 		.speed = 1,
 		.timer = 0,
-		.running = 1
+
+		.tag_mode = 1,
+		.current_tag = tag
 	};
 
-	switch (anim.anim_direction)
+	switch (tag.anim_direction)
 	{
 		case FORWARDS:
 			anim.current_frame = tag.from_frame;
@@ -277,11 +272,6 @@ Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id)
 		case REVERSE:
 			anim.current_frame = tag.to_frame;
 			break;
-	}
-
-	if (tag.repeat == 0)
-	{
-		anim.loop = 1;
 	}
 
 	return anim;
@@ -294,20 +284,25 @@ Animation CreateSimpleAnimation(Aseprite ase)
 
 		.current_frame = 0,
 
-		.tag_mode = 0,
-		.tag_id = -1,
-
-		.anim_direction = FORWARDS,
-		.ping_pong = 0,
-
-		.from_frame = 0,
-		.to_frame = 0,
-
-		.repeat = 0,
-
 		.running = 1,
 		.speed = 1,
-		.timer = 0
+		.timer = 0,
+
+		.tag_mode = 0,
+		.current_tag = 
+		{
+			.id = -1,
+			.name = NULL,
+
+			.anim_direction = FORWARDS,
+			.ping_pong = 0,
+
+			.from_frame = 0,
+			.to_frame = 0,
+
+			.repeat = 0,
+			.loop = 1
+		}
 	};
 }
 Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
@@ -324,7 +319,7 @@ Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
 
 		if (strcmp(tag_name, current_tag_name) == 0)
 		{	
-			return _create_animation_from_tag(ase, current_tag, i);
+			return _create_animation_from_tag(ase, current_tag);
 		}
 	}
 
@@ -339,7 +334,7 @@ Animation CreateAnimationTagId(Aseprite ase, int tag_id)
 
 	Tag tag = ase.tags[tag_id];
 
-	return _create_animation_from_tag(ase, tag, tag_id);
+	return _create_animation_from_tag(ase, tag);
 }
 
 void SetAnimationSpeed(Animation *anim, float speed)
@@ -347,7 +342,7 @@ void SetAnimationSpeed(Animation *anim, float speed)
 	P_ANIMATION_CHECK(anim)
 	
 	if (speed < 0)
-		anim->anim_direction = !anim->anim_direction;
+		anim->current_tag.anim_direction = !anim->current_tag.anim_direction;
 
 	anim->speed = speed;
 }
@@ -373,69 +368,69 @@ void PauseAnimation(Animation *anim)
 
 void _advance_animation_tag_mode(Animation *anim)
 {
-	switch (anim->anim_direction)
+	switch (anim->current_tag.anim_direction)
 	{
 		case FORWARDS:
 			anim->current_frame++;
 
-			if (anim->current_frame > anim->to_frame)
+			if (anim->current_frame > anim->current_tag.to_frame)
 			{
-				if (!anim->loop)
-					anim->repeat--;
+				if (!anim->current_tag.loop)
+					anim->current_tag.repeat--;
 
-				if (anim->ping_pong)
+				if (anim->current_tag.ping_pong)
 				{
-					anim->anim_direction = REVERSE;
+					anim->current_tag.anim_direction = REVERSE;
 
 					anim->current_frame -= 2;
 				}
 				else
-					anim->current_frame = anim->from_frame;
+					anim->current_frame = anim->current_tag.from_frame;
 			}
 			break;
 		case REVERSE:
 			anim->current_frame--;
 
-			if (anim->current_frame < anim->from_frame)
+			if (anim->current_frame < anim->current_tag.from_frame)
 			{
-				if (!anim->loop)
-					anim->repeat--;
+				if (!anim->current_tag.loop)
+					anim->current_tag.repeat--;
 
-				if (anim->ping_pong)
+				if (anim->current_tag.ping_pong)
 				{
-					anim->anim_direction = FORWARDS;
+					anim->current_tag.anim_direction = FORWARDS;
 
 					anim->current_frame += 2;
 				}
 				else
-					anim->current_frame = anim->to_frame;
+					anim->current_frame = anim->current_tag.to_frame;
 			}
 			break;
 	}
 
-	if (anim->repeat == 0 && !anim->loop)	// If the tag loops are exhausted
+	if (anim->current_tag.repeat == 0 && !anim->current_tag.loop)	// If the tag loops are exhausted
 	{
-		int next_tag_id = anim->tag_id + 1;
+		int next_tag_id = anim->current_tag.id + 1;
 		
 		if (next_tag_id >= anim->ase.tag_count)
 			next_tag_id = 0;
 
-		anim->tag_id = next_tag_id;
+		anim->current_tag.id = next_tag_id;
 
-		anim->current_frame = anim->to_frame + 1;
+		anim->current_frame = anim->current_tag.to_frame + 1;
 
 		if (anim->current_frame >= anim->ase.frame_count)
 			anim->current_frame = 0;
 		
 		Tag next_tag = anim->ase.tags[next_tag_id];
 
-		anim->anim_direction = next_tag.anim_direction;
-		anim->ping_pong = next_tag.ping_pong;
+		anim->current_tag.anim_direction = next_tag.anim_direction;
+		anim->current_tag.ping_pong = next_tag.ping_pong;
 
-		anim->from_frame = next_tag.from_frame;
-		anim->to_frame = next_tag.to_frame;
+		anim->current_tag.from_frame = next_tag.from_frame;
+		anim->current_tag.to_frame = next_tag.to_frame;
 
-		anim->repeat = next_tag.repeat;
+		anim->current_tag.repeat = next_tag.repeat;
 
 		if (next_tag.from_frame <= anim->current_frame && anim->current_frame <= next_tag.to_frame)
 		{
@@ -488,17 +483,17 @@ void AdvanceAnimation(Animation *anim)
 	if (anim->current_frame >= anim->ase.frame_count)
 		anim->current_frame = 0;
 	
-	if (anim->tag_id != -1 && anim->current_frame == anim->from_frame)
+	if (anim->current_tag.id != -1 && anim->current_frame == anim->current_tag.from_frame)
 	{
 		anim->tag_mode = 1;
 
-		switch (anim->anim_direction)
+		switch (anim->current_tag.anim_direction)
 		{
 			case FORWARDS:
-				anim->current_frame = anim->from_frame;
+				anim->current_frame = anim->current_tag.from_frame;
 				break;
 			case REVERSE:
-				anim->current_frame = anim->to_frame;
+				anim->current_frame = anim->current_tag.to_frame;
 				break;
 		}
 	}

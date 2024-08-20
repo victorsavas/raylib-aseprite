@@ -1,7 +1,6 @@
 #pragma once
 
 #include <raylib.h>
-#include <stdlib.h>
 
 typedef enum AnimDirection
 {
@@ -19,6 +18,9 @@ typedef enum LoadFlags
 // An Aseprite file tag data structure.
 typedef struct Tag
 {
+	int id;
+	const char *name;
+
 	AnimDirection anim_direction;
 	int ping_pong;
 
@@ -26,8 +28,7 @@ typedef struct Tag
 	int to_frame;
 
 	int repeat;
-
-	const char *name;
+	int loop;
 } Tag;
 
 typedef struct Layer
@@ -41,7 +42,7 @@ typedef struct Frame
 	Rectangle source;
 	int duration_milliseconds;
 
-	Layer* layers;
+	Layer *layers;
 } Frame;
 
 // Centralized data structure that contains relevant Aseprite file data.
@@ -75,16 +76,7 @@ typedef struct Animation
 	// Tag data
 
 	int tag_mode;
-	int tag_id;
-
-	AnimDirection anim_direction;
-	int ping_pong;
-
-	int from_frame;
-	int to_frame;
-
-	int repeat;
-	int loop;
+	Tag current_tag;
 } Animation;
 
 // Load and unload functions.
