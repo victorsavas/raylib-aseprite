@@ -5,30 +5,76 @@
 
 #include <aseprite.h>
 
-#define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !anim->ase.ready) return;
+static Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags);
 
-static Aseprite _load_aseprite(ase_t *cute_ase);
-static Texture2D _get_frame_texture(Aseprite ase, int frame);
+static void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase);
+static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *Ase);
+static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
+
+static int _aseprite_flags_check(LoadFlags flags, LoadFlags check);
+
 static Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id);
 static void _advance_animation_tag_mode(Animation *anim);
 
+#define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !_aseprite_flags_check(anim->ase.flags, ASEPRITE_LOAD_TAGS)) return;
+
 // Memory management functions
 
-Aseprite _load_aseprite(ase_t *cute_ase)
+Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 {
-	if (cute_ase == NULL)
+	if (cute_ase == NULL || flags == 0)
 		return (Aseprite){0};
 	
 	Aseprite ase = {0};
 
+	ase.flags = flags;
+
 	// Load frames
 
-	ase.frame_count = cute_ase->frame_count;
-	ase.frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
+	_load_aseprite_frames(cute_ase, &ase);
+
+	// Load layers
+
+	if (flags & ASEPRITE_LOAD_LAYERS)
+		_load_aseprite_layers(cute_ase, &ase);
+
+	// Load tags
+
+	if (flags & ASEPRITE_LOAD_TAGS)
+		_load_aseprite_tags(cute_ase, &ase);
+
+	return ase;
+}
+
+void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
+{
+	Image image;
+
+	int load_texture = ase->flags & ASEPRITE_LOAD_FRAMES;
+
+	if (load_texture)
+		image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
+
+	ase->frame_count = cute_ase->frame_count;
+	ase->frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
 
 	for (int i = 0; i < cute_ase->frame_count; i++)
 	{
-		Image image =
+		Rectangle frame_source =
+		{
+			.x = cute_ase->w * i,
+			.y = 0,
+			.width = cute_ase->w,
+			.height = cute_ase->h
+		};
+
+		ase->frames[i].source = frame_source;
+		ase->frames[i].duration_milliseconds = (cute_ase->frames)[i].duration_milliseconds;
+
+		if (!load_texture)
+			continue;
+
+		Image frame =
 		{
 			.width = cute_ase->w,
 			.height = cute_ase->h,
@@ -37,55 +83,67 @@ Aseprite _load_aseprite(ase_t *cute_ase)
 			.data = (cute_ase->frames)[i].pixels
 		};
 
-		Texture frame_texture = LoadTextureFromImage(image);
+		Rectangle source = 
+		{
+			.x = 0,
+			.y = 0,
+			.width = cute_ase->w,
+			.height = cute_ase->h
+		};
 
-		ase.frames[i].texture = frame_texture;
-		ase.frames[i].duration_milliseconds = (cute_ase->frames)[i].duration_milliseconds;
+		ImageDraw(&image, frame, source, frame_source, WHITE);
 	}
 
-	// Load tags
+	if (load_texture)
+	{
+		ase->frames_texture = LoadTextureFromImage(image);
 
-	ase.tag_count = cute_ase->tag_count;
-	ase.tags = (Tag *)malloc(sizeof(Tag) * cute_ase->tag_count);
+		UnloadImage(image);
+	}
+}
+void _load_aseprite_layers(ase_t *cute_ase, Aseprite *Ase)
+{
+	// Load layers
+}
+void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
+{
+	ase->tag_count = cute_ase->tag_count;
+	ase->tags = (Tag *)malloc(sizeof(Tag) * cute_ase->tag_count);
 
 	for (int i = 0; i < cute_ase->tag_count; i++)
 	{
 		ase_tag_t tag = (cute_ase->tags)[i];
 
-		ase.tags[i].anim_direction = tag.loop_animation_direction & 1;
-		ase.tags[i].ping_pong = (tag.loop_animation_direction & 2) >> 1;
+		ase->tags[i].anim_direction = tag.loop_animation_direction & 1;
+		ase->tags[i].ping_pong = (tag.loop_animation_direction & 2) >> 1;
 
-		ase.tags[i].from_frame = tag.from_frame;
-		ase.tags[i].to_frame = tag.to_frame;
+		ase->tags[i].from_frame = tag.from_frame;
+		ase->tags[i].to_frame = tag.to_frame;
 
-		ase.tags[i].repeat = tag.repeat;
+		ase->tags[i].repeat = tag.repeat;
 
-		ase.tags[i].name = strdup(tag.name);
+		ase->tags[i].name = strdup(tag.name);
 	}
-
-	ase.ready = 1;
-
-	return ase;
 }
 
-Aseprite LoadAsepriteFromFile(const char *filename)
+Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags)
 {
 	if (!FileExists(filename))
 		return (Aseprite){0};
 
 	ase_t *cute_ase = cute_aseprite_load_from_file(filename, NULL);
 
-	Aseprite ase = _load_aseprite(cute_ase);
+	Aseprite ase = _load_aseprite(cute_ase, flags);
 
 	cute_aseprite_free(cute_ase);
 
 	return ase;
 }
-Aseprite LoadAsepriteFromMemory(const void *data, int size)
+Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags)
 {
 	ase_t *cute_ase = cute_aseprite_load_from_memory(data, size, NULL);
 
-	Aseprite ase = _load_aseprite(cute_ase);
+	Aseprite ase = _load_aseprite(cute_ase, flags);
 
 	cute_aseprite_free(cute_ase);
 
@@ -93,12 +151,7 @@ Aseprite LoadAsepriteFromMemory(const void *data, int size)
 }
 void UnloadAseprite(Aseprite ase)
 {
-	for (int i = 0; i < ase.frame_count; i++)
-	{
-		Frame frame = ase.frames[i];
-
-		UnloadTexture(frame.texture);
-	}
+	UnloadTexture(ase.frames_texture);
 
 	free(ase.frames);
 
@@ -112,45 +165,83 @@ void UnloadAseprite(Aseprite ase)
 	free(ase.tags);
 }
 
-// Static draw functions
-
-Texture2D _get_frame_texture(Aseprite ase, int frame)
+int _aseprite_flags_check(LoadFlags flags, LoadFlags check)
 {
-	if ((frame >= ase.frame_count) || !(ase.ready))
-		return (Texture2D){0};
-	
-	return ase.frames[frame].texture;
+	return (flags & check) == check;
 }
+
+// Static draw functions
 
 void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint)
 {
-	Texture2D texture = _get_frame_texture(ase, frame);
+	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+		return;
 
-	DrawTexture(texture, x, y, tint);
+	if (frame >= ase.frame_count)
+		return;
+
+	Texture2D texture = ase.frames_texture;
+	Rectangle source = ase.frames[frame].source;
+
+	DrawTextureRec(texture, source, (Vector2){x, y}, WHITE);
 }
 void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint)
 {
-	Texture2D texture = _get_frame_texture(ase, frame);
+	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+		return;
 
-	DrawTextureV(texture, pos, tint);
+	if (frame >= ase.frame_count)
+		return;
+
+	Texture2D texture = ase.frames_texture;
+	Rectangle source = ase.frames[frame].source;
+
+	DrawTextureRec(texture, source, pos, WHITE);
 }
 void DrawAsepriteEx(Aseprite ase, int frame, Vector2 pos, float rotation, float scale, Color tint)
 {
-	Texture2D texture = _get_frame_texture(ase, frame);
+	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+		return;
 
-	DrawTextureEx(texture, pos, rotation, scale, tint);
+	if (frame >= ase.frame_count)
+		return;
+
+	Texture2D texture = ase.frames_texture;
+	Rectangle source = ase.frames[frame].source;
+
+	Rectangle dest = 
+	{
+		.x = pos.x,
+		.y = pos.y,
+		.width = source.width * scale,
+		.height = source.height * scale
+	};
+
+	DrawTexturePro(texture, source, dest, pos, rotation, WHITE);
 }
 void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
-	Texture2D texture = _get_frame_texture(ase, frame);
-	
-	Rectangle source = {0, 0, texture.width, texture.height};
-	Rectangle dest = {position.x, position.y, texture.width * x_scale, texture.height * y_scale};
+	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+		return;
+
+	if (frame >= ase.frame_count)
+		return;
+
+	Texture2D texture = ase.frames_texture;
+	Rectangle source = ase.frames[frame].source;
+
+	Rectangle dest = 
+	{
+		.x = position.x,
+		.y = position.y,
+		.width = source.width * x_scale,
+		.height = source.height * y_scale
+	};
 
 	origin.x *= x_scale;
 	origin.y *= y_scale;
 
-	DrawTexturePro(texture, source, dest, origin, rotation, tint);
+	DrawTexturePro(texture, source, dest, origin, rotation, WHITE);
 }
 
 // Animation Tag functions
@@ -197,9 +288,6 @@ Animation _create_animation_from_tag(Aseprite ase, Tag tag, int id)
 }
 Animation CreateSimpleAnimation(Aseprite ase)
 {
-	if (!ase.ready)
-		return (Animation){0};
-
 	return (Animation){
 		.ase = ase,
 		.ready = 1,
@@ -224,7 +312,7 @@ Animation CreateSimpleAnimation(Aseprite ase)
 }
 Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
 {
-	if (!ase.ready)
+	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
 		return (Animation){0};
 
 	// Please don't name two tags with the same name.
@@ -246,7 +334,7 @@ Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
 }
 Animation CreateAnimationTagId(Aseprite ase, int tag_id)
 {
-	if (!ase.ready || tag_id >= ase.tag_count)
+	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
 		return (Animation){0};
 
 	Tag tag = ase.tags[tag_id];
