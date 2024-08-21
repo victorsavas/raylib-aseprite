@@ -108,6 +108,8 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 		(Layer){
 			.id = j,
 
+			.opacity = cute_ase->layers[j].opacity,
+
 			.name = strdup(cute_ase->layers[j].name),
 			.texture_height = j * cute_ase->h
 		};

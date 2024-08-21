@@ -38,6 +38,8 @@ typedef struct Layer
 	int id;
 	const char *name;
 
+	float opacity;
+
 	float texture_height;
 } Layer;
 
