@@ -123,29 +123,31 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 	{
 		for (int j = 0; j < cute_ase->frames[i].cel_count; j++)
 		{
+			ase_cel_t cute_cel = cute_ase->frames[i].cels[j];
+
 			Image cel =
 			{
-				.width = cute_ase->w,
-				.height = cute_ase->h,
+				.width = cute_cel.w,
+				.height = cute_cel.h,
 				.mipmaps = 1,
 				.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
-				.data = (cute_ase->frames[i]).cels[j].pixels
+				.data = cute_cel.pixels
 			};
 
 			Rectangle source =
 			{
 				.x = 0,
 				.y = 0,
-				.width = cute_ase->w,
-				.height = cute_ase->h
+				.width = cute_cel.w,
+				.height = cute_cel.h
 			};
 
 			Rectangle dest =
 			{
-				.x = cute_ase->w * i,
-				.y = cute_ase->h * j,
-				.width = cute_ase->w,
-				.height = cute_ase->h
+				.x = cute_ase->w * i + cute_cel.x,
+				.y = cute_ase->h * j + cute_cel.y,
+				.width = cute_cel.w,
+				.height = cute_cel.h
 			};
 
 			ImageDraw(&image, cel, source, dest, WHITE);
