@@ -21,6 +21,8 @@ typedef struct Tag
 	int id;
 	const char *name;
 
+	Color color;
+
 	AnimDirection anim_direction;
 	int ping_pong;
 
@@ -33,16 +35,20 @@ typedef struct Tag
 
 typedef struct Layer
 {
+	int id;
 	const char *name;
+
+	float texture_height;
 } Layer;
 
 // A single Aseprite file frame data structure.
 typedef struct Frame
 {
+	int id;
+
 	Rectangle source;
 	int duration_milliseconds;
 
-	Layer *layers;
 } Frame;
 
 // Centralized data structure that contains relevant Aseprite file data.
@@ -55,6 +61,7 @@ typedef struct Aseprite
 	int frame_count;
 
 	Texture2D layers_texture;
+	Layer *layers;
 	int layer_count;
 
 	Tag *tags;

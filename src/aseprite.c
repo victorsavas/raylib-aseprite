@@ -8,8 +8,9 @@
 
 static Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags);
 
+static void _load_aseprite_basic(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase);
-static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *Ase);
+static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
 
 static int _aseprite_flags_check(LoadFlags flags, LoadFlags check);
@@ -30,16 +31,13 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 
 	ase.flags = flags;
 
-	// Load frames
+	_load_aseprite_basic(cute_ase, &ase);
 
-	_load_aseprite_frames(cute_ase, &ase);
-
-	// Load layers
+	if (flags & ASEPRITE_LOAD_FRAMES)
+		_load_aseprite_frames(cute_ase, &ase);
 
 	if (flags & ASEPRITE_LOAD_LAYERS)
 		_load_aseprite_layers(cute_ase, &ase);
-
-	// Load tags
 
 	if (flags & ASEPRITE_LOAD_TAGS)
 		_load_aseprite_tags(cute_ase, &ase);
@@ -47,15 +45,8 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 	return ase;
 }
 
-void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
+void _load_aseprite_basic(ase_t *cute_ase, Aseprite *ase)
 {
-	Image image;
-
-	int load_texture = ase->flags & ASEPRITE_LOAD_FRAMES;
-
-	if (load_texture)
-		image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
-
 	ase->frame_count = cute_ase->frame_count;
 	ase->frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
 
@@ -69,12 +60,18 @@ void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 			.height = cute_ase->h
 		};
 
+		ase->frames[i].id = i;
+
 		ase->frames[i].source = frame_source;
 		ase->frames[i].duration_milliseconds = (cute_ase->frames)[i].duration_milliseconds;
+	}
+}
+void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
+{
+	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
 
-		if (!load_texture)
-			continue;
-
+	for (int i = 0; i < cute_ase->frame_count; i++)
+	{
 		Image frame =
 		{
 			.width = cute_ase->w,
@@ -92,19 +89,68 @@ void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 			.height = cute_ase->h
 		};
 
-		ImageDraw(&image, frame, source, frame_source, WHITE);
+		ImageDraw(&image, frame, source, ase->frames[i].source, WHITE);
 	}
 
-	if (load_texture)
-	{
-		ase->frames_texture = LoadTextureFromImage(image);
+	ase->frames_texture = LoadTextureFromImage(image);
 
-		UnloadImage(image);
-	}
+	UnloadImage(image);
 }
-void _load_aseprite_layers(ase_t *cute_ase, Aseprite *Ase)
+void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 {
 	// Load layers
+
+	ase->layers = (Layer *)malloc(cute_ase->layer_count * sizeof(Layer));
+
+	for (int j = 0; j < cute_ase->layer_count; j++)
+	{
+		ase->layers[j] =
+		(Layer){
+			.id = j,
+
+			.name = strdup(cute_ase->layers[j].name),
+			.texture_height = j * cute_ase->h
+		};
+	}
+
+	// Load cels
+
+	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h * cute_ase->layer_count, BLANK);
+
+	for (int i = 0; i < cute_ase->frame_count; i++)
+	{
+		for (int j = 0; j < cute_ase->frames[i].cel_count; j++)
+		{
+			Image cel =
+			{
+				.width = cute_ase->w,
+				.height = cute_ase->h,
+				.mipmaps = 1,
+				.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+				.data = (cute_ase->frames[i]).cels[j].pixels
+			};
+
+			Rectangle source =
+			{
+				.x = 0,
+				.y = 0,
+				.width = cute_ase->w,
+				.height = cute_ase->h
+			};
+
+			Rectangle dest =
+			{
+				.x = cute_ase->w * i,
+				.y = cute_ase->h * j,
+				.width = cute_ase->w,
+				.height = cute_ase->h
+			};
+
+			ImageDraw(&image, cel, source, dest, WHITE);
+		}
+	}
+
+	ase->layers_texture = LoadTextureFromImage(image);
 }
 void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 {
@@ -117,6 +163,14 @@ void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 
 		ase->tags[i].id = i;
 		ase->tags[i].name = strdup(tag.name);
+
+		ase->tags[i].color =
+		(Color){
+			.r = tag.r,
+			.g = tag.g,
+			.b = tag.b,
+			.a = 255
+		};
 
 		ase->tags[i].anim_direction = tag.loop_animation_direction & 1;
 		ase->tags[i].ping_pong = (tag.loop_animation_direction & 2) >> 1;
@@ -154,18 +208,38 @@ Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags)
 }
 void UnloadAseprite(Aseprite ase)
 {
-	UnloadTexture(ase.frames_texture);
-
-	free(ase.frames);
-
-	for (int i = 0; i < ase.tag_count; i++)
+	if (ase.flags & ASEPRITE_LOAD_FRAMES)
 	{
-		Tag tag = ase.tags[i];
+		UnloadTexture(ase.frames_texture);
 
-		free((void *)tag.name);
+		free(ase.frames);
 	}
 
-	free(ase.tags);
+	if (ase.flags & ASEPRITE_LOAD_LAYERS)
+	{
+		UnloadTexture(ase.layers_texture);
+
+		for (int i = 0; i < ase.layer_count; i++)
+		{
+			Layer layer = ase.layers[i];
+
+			free((void *)layer.name);
+		}
+
+		free((void *)ase.layers);
+	}
+
+	if (ase.flags & ASEPRITE_LOAD_TAGS)
+	{
+		for (int i = 0; i < ase.tag_count; i++)
+		{
+			Tag tag = ase.tags[i];
+
+			free((void *)tag.name);
+		}
+
+		free(ase.tags);
+	}
 }
 
 int _aseprite_flags_check(LoadFlags flags, LoadFlags check)
@@ -293,6 +367,14 @@ Animation CreateSimpleAnimation(Aseprite ase)
 		{
 			.id = -1,
 			.name = NULL,
+
+			.color =
+			(Color){
+				.r = 0,
+				.g = 0,
+				.b = 0,
+				.a = 255
+			},
 
 			.anim_direction = FORWARDS,
 			.ping_pong = 0,
