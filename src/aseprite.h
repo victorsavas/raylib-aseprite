@@ -4,8 +4,8 @@
 
 typedef enum AnimDirection
 {
-	FORWARDS,
-	REVERSE
+	ASEPRITE_ANIM_FORWARDS,
+	ASEPRITE_ANIM_REVERSE
 } AnimDirection;
 
 typedef enum LoadFlags
@@ -33,14 +33,21 @@ typedef struct Tag
 	int loop;
 } Tag;
 
+typedef struct Cel
+{
+	Texture2D texture;
+	Rectangle source;
+
+	float x;
+	float y;
+} Cel;
+
 typedef struct Layer
 {
 	int id;
 	const char *name;
 
 	float opacity;
-
-	float texture_height;
 } Layer;
 
 // A single Aseprite file frame data structure.
@@ -51,6 +58,8 @@ typedef struct Frame
 	Rectangle source;
 	int duration_milliseconds;
 
+	Cel *cels;
+	int cel_count;
 } Frame;
 
 // Centralized data structure that contains relevant Aseprite file data.
@@ -58,11 +67,13 @@ typedef struct Aseprite
 {
 	LoadFlags flags;
 
+	float width;
+	float height;
+
 	Texture2D frames_texture;
 	Frame *frames;
 	int frame_count;
 
-	Texture2D layers_texture;
 	Layer *layers;
 	int layer_count;
 
@@ -92,7 +103,7 @@ typedef struct Animation
 
 Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags);
 Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags);
-void UnloadAseprite(Aseprite ase);
+void UnloadAseprite(Aseprite *ase);
 
 // Animationless draw functions.
 

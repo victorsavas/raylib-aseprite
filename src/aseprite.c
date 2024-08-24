@@ -50,6 +50,9 @@ void _load_aseprite_basic(ase_t *cute_ase, Aseprite *ase)
 	ase->frame_count = cute_ase->frame_count;
 	ase->frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
 
+	ase->width = cute_ase->w;
+	ase->height = cute_ase->h;
+
 	for (int i = 0; i < cute_ase->frame_count; i++)
 	{
 		Rectangle frame_source =
@@ -72,7 +75,7 @@ void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 
 	for (int i = 0; i < cute_ase->frame_count; i++)
 	{
-		Image frame =
+		Image frame_image =
 		{
 			.width = cute_ase->w,
 			.height = cute_ase->h,
@@ -89,7 +92,7 @@ void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 			.height = cute_ase->h
 		};
 
-		ImageDraw(&image, frame, source, ase->frames[i].source, WHITE);
+		ImageDraw(&image, frame_image, source, ase->frames[i].source, WHITE);
 	}
 
 	ase->frames_texture = LoadTextureFromImage(image);
@@ -100,33 +103,45 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 {
 	// Load layers
 
+	ase->layer_count = cute_ase->layer_count;
 	ase->layers = (Layer *)malloc(cute_ase->layer_count * sizeof(Layer));
 
 	for (int j = 0; j < cute_ase->layer_count; j++)
 	{
-		ase->layers[j] =
-		(Layer){
+		ase->layers[j] = (Layer){
 			.id = j,
+			.name = strdup(cute_ase->layers[j].name),
 
 			.opacity = cute_ase->layers[j].opacity,
-
-			.name = strdup(cute_ase->layers[j].name),
-			.texture_height = j * cute_ase->h
 		};
 	}
 
 	// Load cels
 
-	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h * cute_ase->layer_count, BLANK);
-
-	for (int i = 0; i < cute_ase->frame_count; i++)
+	for (int i = 0; i < ase->frame_count; i++)
 	{
-		for (int j = 0; j < cute_ase->frames[i].cel_count; j++)
+		Frame *frame = &ase->frames[i];
+
+		frame->cel_count = cute_ase->frames[i].cel_count;
+		frame->cels = (Cel *)malloc(frame->cel_count * sizeof(Cel));
+
+		for (int j = 0; j < frame->cel_count; j++)
 		{
 			ase_cel_t cute_cel = cute_ase->frames[i].cels[j];
 
-			Image cel =
-			{
+			Cel *cel = &frame->cels[j];
+
+			cel->x = cute_cel.x;
+			cel->y = cute_cel.y;
+
+			cel->source = (Rectangle){
+				.x = -cute_cel.x,
+				.y = -cute_cel.y,
+				.width = cute_ase->w,
+				.height = cute_ase->h
+			};
+
+			Image cel_image = (Image){
 				.width = cute_cel.w,
 				.height = cute_cel.h,
 				.mipmaps = 1,
@@ -134,27 +149,9 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 				.data = cute_cel.pixels
 			};
 
-			Rectangle source =
-			{
-				.x = 0,
-				.y = 0,
-				.width = cute_cel.w,
-				.height = cute_cel.h
-			};
-
-			Rectangle dest =
-			{
-				.x = cute_ase->w * i + cute_cel.x,
-				.y = cute_ase->h * j + cute_cel.y,
-				.width = cute_cel.w,
-				.height = cute_cel.h
-			};
-
-			ImageDraw(&image, cel, source, dest, WHITE);
+			frame->cels[j].texture = LoadTextureFromImage(cel_image);
 		}
 	}
-
-	ase->layers_texture = LoadTextureFromImage(image);
 }
 void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 {
@@ -210,40 +207,55 @@ Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags)
 
 	return ase;
 }
-void UnloadAseprite(Aseprite ase)
+void UnloadAseprite(Aseprite *ase)
 {
-	if (ase.flags & ASEPRITE_LOAD_FRAMES)
+	if (ase->flags & ASEPRITE_LOAD_FRAMES)
 	{
-		UnloadTexture(ase.frames_texture);
+		UnloadTexture(ase->frames_texture);
 
-		free(ase.frames);
+		if (ase->flags & ASEPRITE_LOAD_LAYERS)
+		{
+			for (int i = 0; i < ase->frame_count; i++)
+			{
+				for (int j = 0; j < ase->frames[i].cel_count; j++)
+				{
+					Cel cel = ase->frames[i].cels[j];
+
+					UnloadTexture(cel.texture);
+				}
+
+				free((void *)ase->frames[i].cels);
+			}
+		}
+
+		free((void *)ase->frames);
 	}
 
-	if (ase.flags & ASEPRITE_LOAD_LAYERS)
+	if (ase->flags & ASEPRITE_LOAD_LAYERS)
 	{
-		UnloadTexture(ase.layers_texture);
-
-		for (int i = 0; i < ase.layer_count; i++)
+		for (int j = 0; j < ase->layer_count; j++)
 		{
-			Layer layer = ase.layers[i];
+			Layer layer = ase->layers[j];
 
 			free((void *)layer.name);
 		}
 
-		free((void *)ase.layers);
+		free((void *)ase->layers);
 	}
 
-	if (ase.flags & ASEPRITE_LOAD_TAGS)
+	if (ase->flags & ASEPRITE_LOAD_TAGS)
 	{
-		for (int i = 0; i < ase.tag_count; i++)
+		for (int i = 0; i < ase->tag_count; i++)
 		{
-			Tag tag = ase.tags[i];
+			Tag tag = ase->tags[i];
 
 			free((void *)tag.name);
 		}
 
-		free(ase.tags);
+		free((void *)ase->tags);
 	}
+
+	*ase = (Aseprite){0};
 }
 
 int _aseprite_flags_check(LoadFlags flags, LoadFlags check)
@@ -344,10 +356,10 @@ Animation _create_animation_from_tag(Aseprite ase, Tag tag)
 
 	switch (tag.anim_direction)
 	{
-		case FORWARDS:
+		case ASEPRITE_ANIM_FORWARDS:
 			anim.current_frame = tag.from_frame;
 			break;
-		case REVERSE:
+		case ASEPRITE_ANIM_REVERSE:
 			anim.current_frame = tag.to_frame;
 			break;
 	}
@@ -380,7 +392,7 @@ Animation CreateSimpleAnimation(Aseprite ase)
 				.a = 255
 			},
 
-			.anim_direction = FORWARDS,
+			.anim_direction = ASEPRITE_ANIM_FORWARDS,
 			.ping_pong = 0,
 
 			.from_frame = 0,
@@ -456,7 +468,7 @@ void _advance_animation_tag_mode(Animation *anim)
 {
 	switch (anim->current_tag.anim_direction)
 	{
-		case FORWARDS:
+		case ASEPRITE_ANIM_FORWARDS:
 			anim->current_frame++;
 
 			if (anim->current_frame > anim->current_tag.to_frame)
@@ -466,7 +478,7 @@ void _advance_animation_tag_mode(Animation *anim)
 
 				if (anim->current_tag.ping_pong)
 				{
-					anim->current_tag.anim_direction = REVERSE;
+					anim->current_tag.anim_direction = ASEPRITE_ANIM_REVERSE;
 
 					anim->current_frame -= 2;
 				}
@@ -474,7 +486,7 @@ void _advance_animation_tag_mode(Animation *anim)
 					anim->current_frame = anim->current_tag.from_frame;
 			}
 			break;
-		case REVERSE:
+		case ASEPRITE_ANIM_REVERSE:
 			anim->current_frame--;
 
 			if (anim->current_frame < anim->current_tag.from_frame)
@@ -484,7 +496,7 @@ void _advance_animation_tag_mode(Animation *anim)
 
 				if (anim->current_tag.ping_pong)
 				{
-					anim->current_tag.anim_direction = FORWARDS;
+					anim->current_tag.anim_direction = ASEPRITE_ANIM_FORWARDS;
 
 					anim->current_frame += 2;
 				}
@@ -522,10 +534,10 @@ void _advance_animation_tag_mode(Animation *anim)
 		{
 			switch (next_tag.anim_direction)
 			{
-				case FORWARDS:
+				case ASEPRITE_ANIM_FORWARDS:
 					anim->current_frame = next_tag.from_frame;
 					break;
-				case REVERSE:
+				case ASEPRITE_ANIM_REVERSE:
 					anim->current_frame = next_tag.to_frame;
 					break;
 			}
@@ -575,10 +587,10 @@ void AdvanceAnimation(Animation *anim)
 
 		switch (anim->current_tag.anim_direction)
 		{
-			case FORWARDS:
+			case ASEPRITE_ANIM_FORWARDS:
 				anim->current_frame = anim->current_tag.from_frame;
 				break;
-			case REVERSE:
+			case ASEPRITE_ANIM_REVERSE:
 				anim->current_frame = anim->current_tag.to_frame;
 				break;
 		}
