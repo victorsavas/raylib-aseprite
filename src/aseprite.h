@@ -103,7 +103,7 @@ typedef struct Animation
 
 Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags);
 Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags);
-void UnloadAseprite(Aseprite *ase);
+void UnloadAseprite(Aseprite ase);
 
 // Animationless draw functions.
 

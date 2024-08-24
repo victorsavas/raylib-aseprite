@@ -207,55 +207,55 @@ Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags)
 
 	return ase;
 }
-void UnloadAseprite(Aseprite *ase)
+void UnloadAseprite(Aseprite ase)
 {
-	if (ase->flags & ASEPRITE_LOAD_FRAMES)
+	if (ase.flags & ASEPRITE_LOAD_FRAMES)
 	{
-		UnloadTexture(ase->frames_texture);
+		UnloadTexture(ase.frames_texture);
 
-		if (ase->flags & ASEPRITE_LOAD_LAYERS)
+		if (ase.flags & ASEPRITE_LOAD_LAYERS)
 		{
-			for (int i = 0; i < ase->frame_count; i++)
+			for (int i = 0; i < ase.frame_count; i++)
 			{
-				for (int j = 0; j < ase->frames[i].cel_count; j++)
+				Frame frame = ase.frames[i];
+
+				for (int j = 0; j < frame.cel_count; j++)
 				{
-					Cel cel = ase->frames[i].cels[j];
+					Cel cel = frame.cels[j];
 
 					UnloadTexture(cel.texture);
 				}
 
-				free((void *)ase->frames[i].cels);
+				free((void *)frame.cels);
 			}
 		}
 
-		free((void *)ase->frames);
+		free((void *)ase.frames);
 	}
 
-	if (ase->flags & ASEPRITE_LOAD_LAYERS)
+	if (ase.flags & ASEPRITE_LOAD_LAYERS)
 	{
-		for (int j = 0; j < ase->layer_count; j++)
+		for (int j = 0; j < ase.layer_count; j++)
 		{
-			Layer layer = ase->layers[j];
+			Layer layer = ase.layers[j];
 
 			free((void *)layer.name);
 		}
 
-		free((void *)ase->layers);
+		free((void *)ase.layers);
 	}
 
-	if (ase->flags & ASEPRITE_LOAD_TAGS)
+	if (ase.flags & ASEPRITE_LOAD_TAGS)
 	{
-		for (int i = 0; i < ase->tag_count; i++)
+		for (int i = 0; i < ase.tag_count; i++)
 		{
-			Tag tag = ase->tags[i];
+			Tag tag = ase.tags[i];
 
 			free((void *)tag.name);
 		}
 
-		free((void *)ase->tags);
+		free((void *)ase.tags);
 	}
-
-	*ase = (Aseprite){0};
 }
 
 int _aseprite_flags_check(LoadFlags flags, LoadFlags check)
