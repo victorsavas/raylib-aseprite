@@ -32,7 +32,7 @@ int main()
   }
 
   // Unload the Aseprite file
-  UnloadAseprite(frog);
+  UnloadAseprite(&frog);
 
   CloseWindow();
 
