@@ -8,8 +8,9 @@
 
 static Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags);
 
-static void _load_aseprite_basic(ase_t *cute_ase, Aseprite *ase);
+static void _aseprite_setup(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase);
+static void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
 
@@ -31,10 +32,13 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 
 	ase.flags = flags;
 
-	_load_aseprite_basic(cute_ase, &ase);
+	_aseprite_setup(cute_ase, &ase);
 
 	if (flags & ASEPRITE_LOAD_FRAMES)
 		_load_aseprite_frames(cute_ase, &ase);
+
+	if (flags & ASEPRITE_LOAD_CELS)
+		_load_aseprite_cels(cute_ase, &ase);
 
 	if (flags & ASEPRITE_LOAD_LAYERS)
 		_load_aseprite_layers(cute_ase, &ase);
@@ -45,13 +49,17 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 	return ase;
 }
 
-void _load_aseprite_basic(ase_t *cute_ase, Aseprite *ase)
+void _aseprite_setup(ase_t *cute_ase, Aseprite *ase)
 {
-	ase->frame_count = cute_ase->frame_count;
-	ase->frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
-
 	ase->width = cute_ase->w;
 	ase->height = cute_ase->h;
+
+	ase->frame_count = cute_ase->frame_count;
+	ase->frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
+}
+void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
+{
+	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
 
 	for (int i = 0; i < cute_ase->frame_count; i++)
 	{
@@ -67,14 +75,7 @@ void _load_aseprite_basic(ase_t *cute_ase, Aseprite *ase)
 
 		ase->frames[i].source = frame_source;
 		ase->frames[i].duration_milliseconds = (cute_ase->frames)[i].duration_milliseconds;
-	}
-}
-void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
-{
-	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
 
-	for (int i = 0; i < cute_ase->frame_count; i++)
-	{
 		Image frame_image =
 		{
 			.width = cute_ase->w,
@@ -99,6 +100,46 @@ void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 
 	UnloadImage(image);
 }
+void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase)
+{
+	int cel_count = cute_ase->layer_count;
+
+	for (int i = 0; i < ase->frame_count; i++)
+	{
+		Frame *frame = &ase->frames[i];
+		frame->cels = (Cel *)calloc(cel_count, sizeof(Cel));
+
+		ase_frame_t *cute_frame = &cute_ase->frames[i];
+
+		for (int k = 0; k < cute_frame->cel_count; k++)
+		{
+			ase_cel_t cute_cel = cute_frame->cels[k];
+
+			int j = cute_cel.layer - cute_ase->layers;
+
+			Cel cel;
+
+			cel.active = 1;
+
+			cel.x = cute_cel.x;
+			cel.y = cute_cel.y;
+
+			cel.opacity = cute_cel.opacity;
+
+			Image image = {
+				.width = cute_cel.w,
+				.height = cute_cel.h,
+				.mipmaps = 1,
+				.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+				.data = cute_cel.pixels
+			};
+
+			cel.texture = LoadTextureFromImage(image);
+
+			frame->cels[j] = cel;
+		}
+	}
+}
 void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 {
 	// Load layers
@@ -108,49 +149,14 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 
 	for (int j = 0; j < cute_ase->layer_count; j++)
 	{
-		ase->layers[j] = (Layer){
+		Layer *layer = &ase->layers[j];
+		
+		*layer = (Layer){
 			.id = j,
 			.name = strdup(cute_ase->layers[j].name),
 
 			.opacity = cute_ase->layers[j].opacity,
 		};
-	}
-
-	// Load cels
-
-	for (int i = 0; i < ase->frame_count; i++)
-	{
-		Frame *frame = &ase->frames[i];
-
-		frame->cel_count = cute_ase->frames[i].cel_count;
-		frame->cels = (Cel *)malloc(frame->cel_count * sizeof(Cel));
-
-		for (int j = 0; j < frame->cel_count; j++)
-		{
-			ase_cel_t cute_cel = cute_ase->frames[i].cels[j];
-
-			Cel *cel = &frame->cels[j];
-
-			cel->x = cute_cel.x;
-			cel->y = cute_cel.y;
-
-			cel->source = (Rectangle){
-				.x = -cute_cel.x,
-				.y = -cute_cel.y,
-				.width = cute_ase->w,
-				.height = cute_ase->h
-			};
-
-			Image cel_image = (Image){
-				.width = cute_cel.w,
-				.height = cute_cel.h,
-				.mipmaps = 1,
-				.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
-				.data = cute_cel.pixels
-			};
-
-			frame->cels[j].texture = LoadTextureFromImage(cel_image);
-		}
 	}
 }
 void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
@@ -212,25 +218,26 @@ void UnloadAseprite(Aseprite ase)
 	if (ase.flags & ASEPRITE_LOAD_FRAMES)
 	{
 		UnloadTexture(ase.frames_texture);
+	}
 
-		if (ase.flags & ASEPRITE_LOAD_LAYERS)
+	if (ase.flags & ASEPRITE_LOAD_CELS)
+	{
+		for (int i = 0; i < ase.frame_count; i++)
 		{
-			for (int i = 0; i < ase.frame_count; i++)
+			Frame frame = ase.frames[i];
+
+			for (int j = 0; j < frame.cel_count; j++)
 			{
-				Frame frame = ase.frames[i];
+				Cel cel = frame.cels[j];
 
-				for (int j = 0; j < frame.cel_count; j++)
-				{
-					Cel cel = frame.cels[j];
+				if (!cel.active)
+					continue;
 
-					UnloadTexture(cel.texture);
-				}
-
-				free((void *)frame.cels);
+				UnloadTexture(cel.texture);
 			}
-		}
 
-		free((void *)ase.frames);
+			free(frame.cels);
+		}
 	}
 
 	if (ase.flags & ASEPRITE_LOAD_LAYERS)
@@ -256,6 +263,8 @@ void UnloadAseprite(Aseprite ase)
 
 		free((void *)ase.tags);
 	}
+
+	free((void *)ase.frames);
 }
 
 int _aseprite_flags_check(LoadFlags flags, LoadFlags check)

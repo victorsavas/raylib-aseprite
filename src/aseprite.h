@@ -10,9 +10,10 @@ typedef enum AnimDirection
 
 typedef enum LoadFlags
 {
-	ASEPRITE_LOAD_FRAMES=1,
-	ASEPRITE_LOAD_LAYERS=2,
-	ASEPRITE_LOAD_TAGS=4
+	ASEPRITE_LOAD_FRAMES = 1,
+	ASEPRITE_LOAD_CELS = 2,
+	ASEPRITE_LOAD_LAYERS = 4,
+	ASEPRITE_LOAD_TAGS = 8,
 } LoadFlags;
 
 // An Aseprite file tag data structure.
@@ -35,11 +36,14 @@ typedef struct Tag
 
 typedef struct Cel
 {
+	int active;
+
 	Texture2D texture;
-	Rectangle source;
 
 	float x;
 	float y;
+
+	float opacity;
 } Cel;
 
 typedef struct Layer
@@ -58,7 +62,7 @@ typedef struct Frame
 	Rectangle source;
 	int duration_milliseconds;
 
-	Cel *cels;
+	Cel* cels;
 	int cel_count;
 } Frame;
 
