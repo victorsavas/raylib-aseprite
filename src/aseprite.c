@@ -13,6 +13,7 @@ static void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
+static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase);
 
 static int _aseprite_flags_check(LoadFlags flags, LoadFlags check);
 
@@ -45,6 +46,9 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 
 	if (flags & ASEPRITE_LOAD_TAGS)
 		_load_aseprite_tags(cute_ase, &ase);
+
+	if (flags & ASEPRITE_LOAD_PALETTE)
+		_load_aseprite_palette(cute_ase, &ase);
 
 	return ase;
 }
@@ -189,6 +193,22 @@ void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 		ase->tags[i].loop = !tag.repeat;
 	}
 }
+static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase)
+{
+	ase->color_count = cute_ase->palette.entry_count;
+	ase->palette = (Color *)malloc(ase->color_count * sizeof(Color));
+
+	for (int u = 0; u < ase->color_count; u++)
+	{
+		Color *color = &ase->palette[u];
+		ase_color_t cute = cute_ase->palette.entries[u].color;
+
+		color->r = cute.r;
+		color->g = cute.g;
+		color->b = cute.b;
+		color->a = cute.a;
+	}
+}
 
 Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags)
 {
@@ -236,7 +256,7 @@ void UnloadAseprite(Aseprite ase)
 				UnloadTexture(cel.texture);
 			}
 
-			free(frame.cels);
+			free((void *)frame.cels);
 		}
 	}
 
@@ -264,6 +284,11 @@ void UnloadAseprite(Aseprite ase)
 		free((void *)ase.tags);
 	}
 
+	if (ase.flags & ASEPRITE_LOAD_PALETTE)
+	{
+		free((void *)ase.palette);
+	}
+
 	free((void *)ase.frames);
 }
 
@@ -272,7 +297,7 @@ int _aseprite_flags_check(LoadFlags flags, LoadFlags check)
 	return (flags & check) == check;
 }
 
-// Static draw functions
+// Motionless draw functions
 
 void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint)
 {

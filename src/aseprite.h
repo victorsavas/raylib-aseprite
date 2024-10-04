@@ -14,6 +14,7 @@ typedef enum LoadFlags
 	ASEPRITE_LOAD_CELS = 2,
 	ASEPRITE_LOAD_LAYERS = 4,
 	ASEPRITE_LOAD_TAGS = 8,
+	ASEPRITE_LOAD_PALETTE = 16
 } LoadFlags;
 
 // An Aseprite file tag data structure.
@@ -83,6 +84,9 @@ typedef struct Aseprite
 
 	Tag *tags;
 	int tag_count;
+
+	Color *palette;
+	int color_count;
 } Aseprite;
 
 // Data structure for playing animations.
