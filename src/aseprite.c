@@ -6,25 +6,24 @@
 
 #include <aseprite.h>
 
-static Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags);
+static Aseprite _load_aseprite(ase_t *cute_ase, AseLoadFlags flags);
 
-static void _aseprite_setup(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase);
 
-static int _aseprite_flags_check(LoadFlags flags, LoadFlags check);
+static int _aseprite_flags_check(AseLoadFlags flags, AseLoadFlags check);
 
-static Animation _create_animation_from_tag(Aseprite ase, Tag tag);
-static void _advance_animation_tag_mode(Animation *anim);
+static AseAnimation _create_animation_from_tag(Aseprite ase, AseTag tag);
+static void _advance_animation_tag_mode(AseAnimation *anim);
 
 #define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !_aseprite_flags_check(anim->ase.flags, ASEPRITE_LOAD_TAGS)) return;
 
 // Memory management functions
 
-Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
+Aseprite _load_aseprite(ase_t *cute_ase, AseLoadFlags flags)
 {
 	if (cute_ase == NULL || flags == 0)
 		return (Aseprite){0};
@@ -33,7 +32,11 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 
 	ase.flags = flags;
 
-	_aseprite_setup(cute_ase, &ase);
+	ase.width = cute_ase->w;
+	ase.height = cute_ase->h;
+
+	ase.frame_count = cute_ase->frame_count;
+	ase.frames = (AseFrame *)malloc(sizeof(AseFrame) * cute_ase->frame_count);
 
 	if (flags & ASEPRITE_LOAD_FRAMES)
 		_load_aseprite_frames(cute_ase, &ase);
@@ -53,14 +56,6 @@ Aseprite _load_aseprite(ase_t *cute_ase, LoadFlags flags)
 	return ase;
 }
 
-void _aseprite_setup(ase_t *cute_ase, Aseprite *ase)
-{
-	ase->width = cute_ase->w;
-	ase->height = cute_ase->h;
-
-	ase->frame_count = cute_ase->frame_count;
-	ase->frames = (Frame *)malloc(sizeof(Frame) * cute_ase->frame_count);
-}
 void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 {
 	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
@@ -110,8 +105,8 @@ void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase)
 
 	for (int i = 0; i < ase->frame_count; i++)
 	{
-		Frame *frame = &ase->frames[i];
-		frame->cels = (Cel *)calloc(cel_count, sizeof(Cel));
+		AseFrame *frame = &ase->frames[i];
+		frame->cels = (AseCel *)calloc(cel_count, sizeof(AseCel));
 
 		ase_frame_t *cute_frame = &cute_ase->frames[i];
 
@@ -121,7 +116,7 @@ void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase)
 
 			int j = cute_cel.layer - cute_ase->layers;
 
-			Cel cel;
+			AseCel cel;
 
 			cel.active = 1;
 
@@ -149,13 +144,13 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 	// Load layers
 
 	ase->layer_count = cute_ase->layer_count;
-	ase->layers = (Layer *)malloc(cute_ase->layer_count * sizeof(Layer));
+	ase->layers = (AseLayer *)malloc(cute_ase->layer_count * sizeof(AseLayer));
 
 	for (int j = 0; j < cute_ase->layer_count; j++)
 	{
-		Layer *layer = &ase->layers[j];
+		AseLayer *layer = &ase->layers[j];
 		
-		*layer = (Layer){
+		*layer = (AseLayer){
 			.id = j,
 			.name = strdup(cute_ase->layers[j].name),
 
@@ -166,7 +161,7 @@ void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 {
 	ase->tag_count = cute_ase->tag_count;
-	ase->tags = (Tag *)malloc(sizeof(Tag) * cute_ase->tag_count);
+	ase->tags = (AseTag *)malloc(sizeof(AseTag) * cute_ase->tag_count);
 
 	for (int i = 0; i < cute_ase->tag_count; i++)
 	{
@@ -210,7 +205,7 @@ static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase)
 	}
 }
 
-Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags)
+Aseprite LoadAsepriteFromFile(const char *filename, AseLoadFlags flags)
 {
 	if (!FileExists(filename))
 		return (Aseprite){0};
@@ -223,7 +218,7 @@ Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags)
 
 	return ase;
 }
-Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags)
+Aseprite LoadAsepriteFromMemory(const void *data, int size, AseLoadFlags flags)
 {
 	ase_t *cute_ase = cute_aseprite_load_from_memory(data, size, NULL);
 
@@ -244,11 +239,11 @@ void UnloadAseprite(Aseprite ase)
 	{
 		for (int i = 0; i < ase.frame_count; i++)
 		{
-			Frame frame = ase.frames[i];
+			AseFrame frame = ase.frames[i];
 
 			for (int j = 0; j < frame.cel_count; j++)
 			{
-				Cel cel = frame.cels[j];
+				AseCel cel = frame.cels[j];
 
 				if (!cel.active)
 					continue;
@@ -264,7 +259,7 @@ void UnloadAseprite(Aseprite ase)
 	{
 		for (int j = 0; j < ase.layer_count; j++)
 		{
-			Layer layer = ase.layers[j];
+			AseLayer layer = ase.layers[j];
 
 			free((void *)layer.name);
 		}
@@ -276,7 +271,7 @@ void UnloadAseprite(Aseprite ase)
 	{
 		for (int i = 0; i < ase.tag_count; i++)
 		{
-			Tag tag = ase.tags[i];
+			AseTag tag = ase.tags[i];
 
 			free((void *)tag.name);
 		}
@@ -292,7 +287,7 @@ void UnloadAseprite(Aseprite ase)
 	free((void *)ase.frames);
 }
 
-int _aseprite_flags_check(LoadFlags flags, LoadFlags check)
+int _aseprite_flags_check(AseLoadFlags flags, AseLoadFlags check)
 {
 	return (flags & check) == check;
 }
@@ -373,9 +368,9 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 // Animation Tag functions
 
-Animation _create_animation_from_tag(Aseprite ase, Tag tag)
+AseAnimation _create_animation_from_tag(Aseprite ase, AseTag tag)
 {
-	Animation anim =
+	AseAnimation anim =
 	{
 		.ase = ase,
 		.ready = 1,
@@ -400,9 +395,9 @@ Animation _create_animation_from_tag(Aseprite ase, Tag tag)
 
 	return anim;
 }
-Animation CreateSimpleAnimation(Aseprite ase)
+AseAnimation CreateSimpleAnimation(Aseprite ase)
 {
-	return (Animation){
+	return (AseAnimation){
 		.ase = ase,
 		.ready = 1,
 
@@ -437,16 +432,16 @@ Animation CreateSimpleAnimation(Aseprite ase)
 		}
 	};
 }
-Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
+AseAnimation CreateAnimationTag(Aseprite ase, const char *tag_name)
 {
 	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
-		return (Animation){0};
+		return (AseAnimation){0};
 
 	// Please don't name two tags with the same name.
 
 	for (int i = 0; i < ase.tag_count; i++)
 	{
-		Tag current_tag = ase.tags[i];
+		AseTag current_tag = ase.tags[i];
 		const char *current_tag_name = current_tag.name;
 
 		if (strcmp(tag_name, current_tag_name) == 0)
@@ -457,19 +452,19 @@ Animation CreateAnimationTag(Aseprite ase, const char *tag_name)
 
 	// If no tags are found, an empty tag is returned as default.
 
-	return (Animation){0};
+	return (AseAnimation){0};
 }
-Animation CreateAnimationTagId(Aseprite ase, int tag_id)
+AseAnimation CreateAnimationTagId(Aseprite ase, int tag_id)
 {
 	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
-		return (Animation){0};
+		return (AseAnimation){0};
 
-	Tag tag = ase.tags[tag_id];
+	AseTag tag = ase.tags[tag_id];
 
 	return _create_animation_from_tag(ase, tag);
 }
 
-void SetAnimationSpeed(Animation *anim, float speed)
+void SetAnimationSpeed(AseAnimation *anim, float speed)
 {
 	P_ANIMATION_CHECK(anim)
 	
@@ -479,26 +474,26 @@ void SetAnimationSpeed(Animation *anim, float speed)
 	anim->speed = speed;
 }
 
-void PlayAnimation(Animation *anim)
+void PlayAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 	
 	anim->running = 1;
 }
-void StopAnimation(Animation *anim)
+void StopAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 	
 	anim->running = 0;
 }
-void PauseAnimation(Animation *anim)
+void PauseAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
 	anim->running = !anim->running;
 }
 
-void _advance_animation_tag_mode(Animation *anim)
+void _advance_animation_tag_mode(AseAnimation *anim)
 {
 	switch (anim->current_tag.anim_direction)
 	{
@@ -554,7 +549,7 @@ void _advance_animation_tag_mode(Animation *anim)
 		if (anim->current_frame >= anim->ase.frame_count)
 			anim->current_frame = 0;
 		
-		Tag next_tag = anim->ase.tags[next_tag_id];
+		AseTag next_tag = anim->ase.tags[next_tag_id];
 
 		anim->current_tag.anim_direction = next_tag.anim_direction;
 		anim->current_tag.ping_pong = next_tag.ping_pong;
@@ -581,7 +576,7 @@ void _advance_animation_tag_mode(Animation *anim)
 	}
 }
 
-void AdvanceAnimation(Animation *anim)
+void AdvanceAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
@@ -631,19 +626,19 @@ void AdvanceAnimation(Animation *anim)
 	}
 }
 
-void DrawAnimation(Animation anim, float x, float y, Color tint)
+void DrawAnimation(AseAnimation anim, float x, float y, Color tint)
 {
 	DrawAseprite(anim.ase, anim.current_frame, x, y, tint);
 }
-void DrawAnimationV(Animation anim, Vector2 pos, Color tint)
+void DrawAnimationV(AseAnimation anim, Vector2 pos, Color tint)
 {
 	DrawAsepriteV(anim.ase, anim.current_frame, pos, tint);
 }
-void DrawAnimationEx(Animation anim, Vector2 pos, float rotation, float scale, Color tint)
+void DrawAnimationEx(AseAnimation anim, Vector2 pos, float rotation, float scale, Color tint)
 {
 	DrawAsepriteEx(anim.ase, anim.current_frame, pos, rotation, scale, tint);
 }
-void DrawAnimationScale(Animation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimationScale(AseAnimation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
 	DrawAsepriteScale(anim.ase, anim.current_frame, position, origin, x_scale, y_scale, rotation, tint);
 }

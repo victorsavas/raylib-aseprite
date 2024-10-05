@@ -2,30 +2,30 @@
 
 #include <raylib.h>
 
-typedef enum AnimDirection
+typedef enum AseAnimDirection
 {
 	ASEPRITE_ANIM_FORWARDS,
 	ASEPRITE_ANIM_REVERSE
-} AnimDirection;
+} AseAnimDirection;
 
-typedef enum LoadFlags
+typedef enum AseLoadFlags
 {
 	ASEPRITE_LOAD_FRAMES = 1,
 	ASEPRITE_LOAD_CELS = 2,
 	ASEPRITE_LOAD_LAYERS = 4,
 	ASEPRITE_LOAD_TAGS = 8,
 	ASEPRITE_LOAD_PALETTE = 16
-} LoadFlags;
+} AseLoadFlags;
 
 // An Aseprite file tag data structure.
-typedef struct Tag
+typedef struct AseTag
 {
 	int id;
 	const char *name;
 
 	Color color;
 
-	AnimDirection anim_direction;
+	AseAnimDirection anim_direction;
 	int ping_pong;
 
 	int from_frame;
@@ -33,9 +33,9 @@ typedef struct Tag
 
 	int repeat;
 	int loop;
-} Tag;
+} AseTag;
 
-typedef struct Cel
+typedef struct AseCel
 {
 	int active;
 
@@ -45,44 +45,44 @@ typedef struct Cel
 	float y;
 
 	float opacity;
-} Cel;
+} AseCel;
 
-typedef struct Layer
+typedef struct AseLayer
 {
 	int id;
 	const char *name;
 
 	float opacity;
-} Layer;
+} AseLayer;
 
 // A single Aseprite file frame data structure.
-typedef struct Frame
+typedef struct AseFrame
 {
 	int id;
 
 	Rectangle source;
 	int duration_milliseconds;
 
-	Cel* cels;
+	AseCel* cels;
 	int cel_count;
-} Frame;
+} AseFrame;
 
 // Centralized data structure that contains relevant Aseprite file data.
 typedef struct Aseprite
 {
-	LoadFlags flags;
+	AseLoadFlags flags;
 
 	float width;
 	float height;
 
 	Texture2D frames_texture;
-	Frame *frames;
+	AseFrame *frames;
 	int frame_count;
 
-	Layer *layers;
+	AseLayer *layers;
 	int layer_count;
 
-	Tag *tags;
+	AseTag *tags;
 	int tag_count;
 
 	Color *palette;
@@ -90,7 +90,7 @@ typedef struct Aseprite
 } Aseprite;
 
 // Data structure for playing animations.
-typedef struct Animation
+typedef struct AseAnimation
 {
 	Aseprite ase;
 	int ready;
@@ -104,13 +104,13 @@ typedef struct Animation
 	// Tag data
 
 	int tag_mode;
-	Tag current_tag;
-} Animation;
+	AseTag current_tag;
+} AseAnimation;
 
 // Load and unload functions.
 
-Aseprite LoadAsepriteFromFile(const char *filename, LoadFlags flags);
-Aseprite LoadAsepriteFromMemory(const void *data, int size, LoadFlags flags);
+Aseprite LoadAsepriteFromFile(const char *filename, AseLoadFlags flags);
+Aseprite LoadAsepriteFromMemory(const void *data, int size, AseLoadFlags flags);
 void UnloadAseprite(Aseprite ase);
 
 // Animationless draw functions.
@@ -122,19 +122,19 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, flo
 
 // Animation functions.	
 
-Animation CreateSimpleAnimation(Aseprite ase);
-Animation CreateAnimationTag(Aseprite ase, const char *tag_name);
-Animation CreateAnimationTagId(Aseprite ase, int tag_id);
+AseAnimation CreateSimpleAnimation(Aseprite ase);
+AseAnimation CreateAnimationTag(Aseprite ase, const char *tag_name);
+AseAnimation CreateAnimationTagId(Aseprite ase, int tag_id);
 
-void SetAnimationSpeed(Animation *anim, float speed);
+void SetAnimationSpeed(AseAnimation *anim, float speed);
 
-void PlayAnimation(Animation *anim);
-void StopAnimation(Animation *anim);
-void PauseAnimation(Animation *anim);
+void PlayAnimation(AseAnimation *anim);
+void StopAnimation(AseAnimation *anim);
+void PauseAnimation(AseAnimation *anim);
 
-void AdvanceAnimation(Animation *anim);
+void AdvanceAnimation(AseAnimation *anim);
 
-void DrawAnimation(Animation anim, float x, float y, Color tint);
-void DrawAnimationV(Animation anim, Vector2 pos, Color tint);
-void DrawAnimationEx(Animation anim, Vector2 pos, float rotation, float scale, Color tint);
-void DrawAnimationScale(Animation anim, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
+void DrawAnimation(AseAnimation anim, float x, float y, Color tint);
+void DrawAnimationV(AseAnimation anim, Vector2 pos, Color tint);
+void DrawAnimationEx(AseAnimation anim, Vector2 pos, float rotation, float scale, Color tint);
+void DrawAnimationScale(AseAnimation anim, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
