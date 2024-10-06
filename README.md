@@ -15,7 +15,7 @@ int main()
   Aseprite frog = LoadAsepriteFromFile("sprites/frog.ase", ASEPRITE_LOAD_FRAMES | ASEPRITE_LOAD_TAGS);
 
   // Create an animation from an Aseprite file tag
-  Animation tongue = CreateAnimationTag(frog, "Tongue");
+  AseAnimTag tongue = CreateAnimationTag(frog, "Tongue");
 
   while (!WindowShouldClose())
   {
