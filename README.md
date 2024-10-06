@@ -44,3 +44,6 @@ int main()
 Simply include cute_aseprite.h, aseprite.c and aseprite.h in your source files and include the aseprite.h header in the relevant files. It is also necessary to make sure the [raylib.h](https://github.com/raysan5/raylib) header is linked.
 
 The [cute_aseprite.h](https://github.com/RandyGaul/cute_headers/blob/master/cute_aseprite.h) header file used to parse .ase and .aseprite files was provided by [Randy Gaul's cute_headers repository](https://github.com/RandyGaul/cute_headers/tree/master).
+
+# limitations
+Randy Gaul's cute_aseprite.h header has no support for tilesets. Attempting to load a file with tileset data will result in an error. 
