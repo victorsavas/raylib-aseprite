@@ -20,13 +20,13 @@ int main()
   while (!WindowShouldClose())
   {
     // Update animation
-    AdvanceAnimation(&tongue);
+    AdvanceAnimTag(&tongue);
 
     BeginDrawing();
     ClearBackground(WHITE);
 
     // Draw the current animation frame to the screen
-    DrawAnimation(tongue, 312, 172, WHITE);
+    DrawAnimTag(tongue, 312, 172, WHITE);
     
     EndDrawing();
   }
