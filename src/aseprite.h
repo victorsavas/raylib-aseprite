@@ -90,7 +90,7 @@ typedef struct Aseprite
 } Aseprite;
 
 // Data structure for playing animations.
-typedef struct AseAnimation
+typedef struct AseAnimTag
 {
 	Aseprite ase;
 	int ready;
@@ -105,7 +105,7 @@ typedef struct AseAnimation
 
 	int tag_mode;
 	AseTag current_tag;
-} AseAnimation;
+} AseAnimTag;
 
 // Load and unload functions.
 
@@ -122,19 +122,18 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 pos, Vector2 origin, flo
 
 // Animation functions.	
 
-AseAnimation CreateSimpleAnimation(Aseprite ase);
-AseAnimation CreateAnimationTag(Aseprite ase, const char *tag_name);
-AseAnimation CreateAnimationTagId(Aseprite ase, int tag_id);
+AseAnimTag CreateAnimTag(Aseprite ase, const char *tag_name);
+AseAnimTag CreateAnimTagId(Aseprite ase, int tag_id);
 
-void SetAnimationSpeed(AseAnimation *anim, float speed);
+void SetAnimTagSpeed(AseAnimTag *anim, float speed);
 
-void PlayAnimation(AseAnimation *anim);
-void StopAnimation(AseAnimation *anim);
-void PauseAnimation(AseAnimation *anim);
+void PlayAnimTag(AseAnimTag *anim);
+void StopAnimTag(AseAnimTag *anim);
+void PauseAnimTag(AseAnimTag *anim);
 
-void AdvanceAnimation(AseAnimation *anim);
+void AdvanceAnimTag(AseAnimTag *anim);
 
-void DrawAnimation(AseAnimation anim, float x, float y, Color tint);
-void DrawAnimationV(AseAnimation anim, Vector2 pos, Color tint);
-void DrawAnimationEx(AseAnimation anim, Vector2 pos, float rotation, float scale, Color tint);
-void DrawAnimationScale(AseAnimation anim, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
+void DrawAnimTag(AseAnimTag anim, float x, float y, Color tint);
+void DrawAnimTagV(AseAnimTag anim, Vector2 pos, Color tint);
+void DrawAnimTagEx(AseAnimTag anim, Vector2 pos, float rotation, float scale, Color tint);
+void DrawAnimTagScale(AseAnimTag anim, Vector2 pos, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);

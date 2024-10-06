@@ -16,8 +16,8 @@ static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase);
 
 static int _aseprite_flags_check(AseLoadFlags flags, AseLoadFlags check);
 
-static AseAnimation _create_animation_from_tag(Aseprite ase, AseTag tag);
-static void _advance_animation_tag_mode(AseAnimation *anim);
+static AseAnimTag _create_animation_from_tag(Aseprite ase, AseTag tag);
+static void _advance_animation_tag_mode(AseAnimTag *anim);
 
 #define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !_aseprite_flags_check(anim->ase.flags, ASEPRITE_LOAD_TAGS)) return;
 
@@ -368,9 +368,9 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 
 // Animation Tag functions
 
-AseAnimation _create_animation_from_tag(Aseprite ase, AseTag tag)
+AseAnimTag _create_animation_from_tag(Aseprite ase, AseTag tag)
 {
-	AseAnimation anim =
+	AseAnimTag anim =
 	{
 		.ase = ase,
 		.ready = 1,
@@ -395,47 +395,11 @@ AseAnimation _create_animation_from_tag(Aseprite ase, AseTag tag)
 
 	return anim;
 }
-AseAnimation CreateSimpleAnimation(Aseprite ase)
-{
-	return (AseAnimation){
-		.ase = ase,
-		.ready = 1,
 
-		.current_frame = 0,
-
-		.running = 1,
-		.speed = 1,
-		.timer = 0,
-
-		.tag_mode = 0,
-		.current_tag = 
-		{
-			.id = -1,
-			.name = NULL,
-
-			.color =
-			(Color){
-				.r = 0,
-				.g = 0,
-				.b = 0,
-				.a = 255
-			},
-
-			.anim_direction = ASEPRITE_ANIM_FORWARDS,
-			.ping_pong = 0,
-
-			.from_frame = 0,
-			.to_frame = 0,
-
-			.repeat = 0,
-			.loop = 1
-		}
-	};
-}
-AseAnimation CreateAnimationTag(Aseprite ase, const char *tag_name)
+AseAnimTag CreateAnimationTag(Aseprite ase, const char *tag_name)
 {
 	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
-		return (AseAnimation){0};
+		return (AseAnimTag){0};
 
 	// Please don't name two tags with the same name.
 
@@ -443,6 +407,8 @@ AseAnimation CreateAnimationTag(Aseprite ase, const char *tag_name)
 	{
 		AseTag current_tag = ase.tags[i];
 		const char *current_tag_name = current_tag.name;
+
+		// Is this safe?
 
 		if (strcmp(tag_name, current_tag_name) == 0)
 		{	
@@ -452,19 +418,19 @@ AseAnimation CreateAnimationTag(Aseprite ase, const char *tag_name)
 
 	// If no tags are found, an empty tag is returned as default.
 
-	return (AseAnimation){0};
+	return (AseAnimTag){0};
 }
-AseAnimation CreateAnimationTagId(Aseprite ase, int tag_id)
+AseAnimTag CreateAnimationTagId(Aseprite ase, int tag_id)
 {
 	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
-		return (AseAnimation){0};
+		return (AseAnimTag){0};
 
 	AseTag tag = ase.tags[tag_id];
 
 	return _create_animation_from_tag(ase, tag);
 }
 
-void SetAnimationSpeed(AseAnimation *anim, float speed)
+void SetAnimTagSpeed(AseAnimTag *anim, float speed)
 {
 	P_ANIMATION_CHECK(anim)
 	
@@ -473,27 +439,26 @@ void SetAnimationSpeed(AseAnimation *anim, float speed)
 
 	anim->speed = speed;
 }
-
-void PlayAnimation(AseAnimation *anim)
+void PlayAnimTag(AseAnimTag *anim)
 {
 	P_ANIMATION_CHECK(anim)
-	
+
 	anim->running = 1;
 }
-void StopAnimation(AseAnimation *anim)
+void StopAnimTag(AseAnimTag *anim)
 {
 	P_ANIMATION_CHECK(anim)
-	
+
 	anim->running = 0;
 }
-void PauseAnimation(AseAnimation *anim)
+void PauseAnimTag(AseAnimTag *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
 	anim->running = !anim->running;
 }
 
-void _advance_animation_tag_mode(AseAnimation *anim)
+void _advance_animation_tag_mode(AseAnimTag *anim)
 {
 	switch (anim->current_tag.anim_direction)
 	{
@@ -576,7 +541,7 @@ void _advance_animation_tag_mode(AseAnimation *anim)
 	}
 }
 
-void AdvanceAnimation(AseAnimation *anim)
+void AdvanceAnimTag(AseAnimTag *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
@@ -626,19 +591,19 @@ void AdvanceAnimation(AseAnimation *anim)
 	}
 }
 
-void DrawAnimation(AseAnimation anim, float x, float y, Color tint)
+void DrawAnimTag(AseAnimTag anim, float x, float y, Color tint)
 {
 	DrawAseprite(anim.ase, anim.current_frame, x, y, tint);
 }
-void DrawAnimationV(AseAnimation anim, Vector2 pos, Color tint)
+void DrawAnimTagV(AseAnimTag anim, Vector2 pos, Color tint)
 {
 	DrawAsepriteV(anim.ase, anim.current_frame, pos, tint);
 }
-void DrawAnimationEx(AseAnimation anim, Vector2 pos, float rotation, float scale, Color tint)
+void DrawAnimTagEx(AseAnimTag anim, Vector2 pos, float rotation, float scale, Color tint)
 {
 	DrawAsepriteEx(anim.ase, anim.current_frame, pos, rotation, scale, tint);
 }
-void DrawAnimationScale(AseAnimation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimTagScale(AseAnimTag anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
 	DrawAsepriteScale(anim.ase, anim.current_frame, position, origin, x_scale, y_scale, rotation, tint);
 }
