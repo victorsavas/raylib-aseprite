@@ -47,7 +47,7 @@ The [cute_aseprite.h](https://github.com/RandyGaul/cute_headers/blob/master/cute
 
 # cheatsheet
 ``` c
-// Load functions
+// Load functions.
 
 Aseprite LoadAsepriteFromFile(const char *filename, AseLoadFlags flags);
 Aseprite LoadAsepriteFromMemory(const void *data, int size, AseLoadFlags flags);
@@ -61,21 +61,21 @@ void DrawFrameV(Aseprite ase, int frame, Vector2 position, Color tint);
 void DrawFrameEx(Aseprite ase, int frame, Vector2 position, float scale, float rotation, Color tint);
 void DrawFrameScale(Aseprite ase, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
-// Montionless cel draw functions
+// Montionless cel draw functions.
 
 void DrawCel(Aseprite ase, int layer, int frame, float x, float y, Color tint);
 void DrawCelV(Aseprite ase, int layer, int frame, Vector2 position, Color tint);
 void DrawCelEx(Aseprite ase, int layer, int frame, Vector2 position, float scale, float rotation, Color tint);
 void DrawCelScale(Aseprite ase, int layer, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
-// Animation load functions.	
+// Animation load functions.
 
 AseAnimation CreateSimpleAnimation(Aseprite *ase);
 AseAnimation CreateAnimationTag(Aseprite *ase, const char *tag_name);
 AseAnimation CreateAnimationTagId(Aseprite *ase, int tag_id);
 int IsAnimationReady(AseAnimation anim);
 
-// Animation update functions
+// Animation update functions.
 
 void SetAnimationSpeed(AseAnimation *anim, float speed);
 void PlayAnimation(AseAnimation *anim);
@@ -83,14 +83,14 @@ void StopAnimation(AseAnimation *anim);
 void PauseAnimation(AseAnimation *anim);
 void AdvanceAnimation(AseAnimation *anim);
 
-// Animated frame draw functions
+// Animated frame draw functions.
 
 void DrawAnimation(AseAnimation anim, float x, float y, Color tint);
 void DrawAnimationV(AseAnimation anim, Vector2 position, Color tint);
 void DrawAnimationEx(AseAnimation anim, Vector2 position, float scale, float rotation, Color tint);
 void DrawAnimationScale(AseAnimation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint);
 
-// Animated layer draw functions
+// Animated layer draw functions.
 
 void DrawAnimLayer(AseAnimation anim, int layer, float x, float y, Color tint);
 void DrawAnimLayerV(AseAnimation anim, int layer, Vector2 position, Color tint);
