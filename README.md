@@ -101,4 +101,4 @@ void DrawAnimLayerScale(AseAnimation anim, int layer, Vector2 position, Vector2 
 # limitations
 Randy Gaul's cute_aseprite.h header has no support for tilesets. Attempting to load a file with tileset data will result in an error.
 
-It also only supports the normal blending mode. Layers will only be displayed in the normal blending mode.
+It also only supports the normal blending mode. Layers will only be displayed in the normal blending mode. A palliative solution is to merge layers that contain blending before using them.
