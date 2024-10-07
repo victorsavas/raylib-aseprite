@@ -9,17 +9,21 @@
 static Aseprite _load_aseprite(ase_t *cute_ase, AseLoadFlags flags);
 
 static void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase);
-static void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase);
 static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase);
 
 static int _aseprite_flags_check(AseLoadFlags flags, AseLoadFlags check);
 
-static AseAnimTag _create_animation_from_tag(Aseprite ase, AseTag tag);
-static void _advance_animation_tag_mode(AseAnimTag *anim);
+static AseAnimation _create_animation_from_tag(Aseprite *ase, AseTag tag);
+static void _advance_animation_tag_mode(AseAnimation *anim);
 
-#define P_ANIMATION_CHECK(anim) if (anim == NULL) return; if (!anim->ready || !_aseprite_flags_check(anim->ase.flags, ASEPRITE_LOAD_TAGS)) return;
+#define P_ANIMATION_CHECK(anim) if (anim == NULL) return; \
+								if (!anim->ready || anim->ase == NULL) return; \
+								if (!_aseprite_flags_check(anim->ase->flags, ASEPRITE_LOAD_TAGS)) return;
+
+#define ANIMATION_CHECK(anim) 	if (!anim.ready || anim.ase == NULL) return; \
+								if (!_aseprite_flags_check(anim.ase->flags, ASEPRITE_LOAD_TAGS)) return;
 
 // Memory management functions
 
@@ -35,14 +39,8 @@ Aseprite _load_aseprite(ase_t *cute_ase, AseLoadFlags flags)
 	ase.width = cute_ase->w;
 	ase.height = cute_ase->h;
 
-	ase.frame_count = cute_ase->frame_count;
-	ase.frames = (AseFrame *)malloc(sizeof(AseFrame) * cute_ase->frame_count);
-
 	if (flags & ASEPRITE_LOAD_FRAMES)
 		_load_aseprite_frames(cute_ase, &ase);
-
-	if (flags & ASEPRITE_LOAD_CELS)
-		_load_aseprite_cels(cute_ase, &ase);
 
 	if (flags & ASEPRITE_LOAD_LAYERS)
 		_load_aseprite_layers(cute_ase, &ase);
@@ -58,6 +56,9 @@ Aseprite _load_aseprite(ase_t *cute_ase, AseLoadFlags flags)
 
 void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 {
+	ase->frame_count = cute_ase->frame_count;
+	ase->frames = (AseFrame *)malloc(sizeof(AseFrame) * cute_ase->frame_count);
+
 	Image image = GenImageColor(cute_ase->w * cute_ase->frame_count, cute_ase->h, BLANK);
 
 	for (int i = 0; i < cute_ase->frame_count; i++)
@@ -99,15 +100,29 @@ void _load_aseprite_frames(ase_t *cute_ase, Aseprite *ase)
 
 	UnloadImage(image);
 }
-void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase)
+void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
 {
-	int cel_count = cute_ase->layer_count;
+	ase->layer_count = cute_ase->layer_count;
+	ase->layers = (AseLayer *)malloc(cute_ase->layer_count * sizeof(AseLayer));
+
+	ase->layer_cel_count = cute_ase->frame_count;
+
+	for (int j = 0; j < cute_ase->layer_count; j++)
+	{
+		AseLayer *layer = &ase->layers[j];
+		
+		*layer = (AseLayer){
+			.id = j,
+			.name = strdup(cute_ase->layers[j].name),
+
+			.opacity = cute_ase->layers[j].opacity,
+
+			.cels = calloc(cute_ase->frame_count, sizeof(AseCel))
+		};
+	}
 
 	for (int i = 0; i < ase->frame_count; i++)
 	{
-		AseFrame *frame = &ase->frames[i];
-		frame->cels = (AseCel *)calloc(cel_count, sizeof(AseCel));
-
 		ase_frame_t *cute_frame = &cute_ase->frames[i];
 
 		for (int k = 0; k < cute_frame->cel_count; k++)
@@ -119,9 +134,6 @@ void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase)
 			AseCel cel;
 
 			cel.active = 1;
-
-			cel.x = cute_cel.x;
-			cel.y = cute_cel.y;
 
 			cel.opacity = cute_cel.opacity;
 
@@ -135,27 +147,47 @@ void _load_aseprite_cels(ase_t *cute_ase, Aseprite *ase)
 
 			cel.texture = LoadTextureFromImage(image);
 
-			frame->cels[j] = cel;
+			float x_offset = cute_cel.x;
+			float y_offset = cute_cel.y;
+
+			Rectangle visible_area =
+			{
+				0, 0, cute_cel.w, cute_cel.h
+			};
+
+			if (x_offset < 0)
+			{
+				x_offset = 0;
+
+				visible_area.x = -cute_cel.x;
+				visible_area.width += cute_cel.x;
+			}
+
+			if (y_offset < 0)
+			{
+				y_offset = 0;
+
+				visible_area.y = -cute_cel.y;
+				visible_area.height += cute_cel.y;
+			}
+
+			if (x_offset + visible_area.width > cute_ase->w)
+			{
+				visible_area.width = cute_ase->w - x_offset;
+			}
+
+			if (y_offset + visible_area.height > cute_ase->h)
+			{
+				visible_area.height = cute_ase->h - y_offset;
+			}
+
+			cel.x_offset = x_offset;
+			cel.y_offset = y_offset;
+
+			cel.visible_area = visible_area;
+
+			ase->layers[j].cels[i] = cel;
 		}
-	}
-}
-void _load_aseprite_layers(ase_t *cute_ase, Aseprite *ase)
-{
-	// Load layers
-
-	ase->layer_count = cute_ase->layer_count;
-	ase->layers = (AseLayer *)malloc(cute_ase->layer_count * sizeof(AseLayer));
-
-	for (int j = 0; j < cute_ase->layer_count; j++)
-	{
-		AseLayer *layer = &ase->layers[j];
-		
-		*layer = (AseLayer){
-			.id = j,
-			.name = strdup(cute_ase->layers[j].name),
-
-			.opacity = cute_ase->layers[j].opacity,
-		};
 	}
 }
 void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
@@ -188,7 +220,7 @@ void _load_aseprite_tags(ase_t *cute_ase, Aseprite *ase)
 		ase->tags[i].loop = !tag.repeat;
 	}
 }
-static void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase)
+void _load_aseprite_palette(ase_t *cute_ase, Aseprite *ase)
 {
 	ase->color_count = cute_ase->palette.entry_count;
 	ase->palette = (Color *)malloc(ase->color_count * sizeof(Color));
@@ -228,63 +260,62 @@ Aseprite LoadAsepriteFromMemory(const void *data, int size, AseLoadFlags flags)
 
 	return ase;
 }
-void UnloadAseprite(Aseprite ase)
+void UnloadAseprite(Aseprite *ase)
 {
-	if (ase.flags & ASEPRITE_LOAD_FRAMES)
+	if (ase == NULL)
+		return;
+
+	if (ase->flags & ASEPRITE_LOAD_FRAMES)
 	{
-		UnloadTexture(ase.frames_texture);
+		UnloadTexture(ase->frames_texture);
 	}
 
-	if (ase.flags & ASEPRITE_LOAD_CELS)
+	if (ase->flags & ASEPRITE_LOAD_LAYERS)
 	{
-		for (int i = 0; i < ase.frame_count; i++)
+		for (int j = 0; j < ase->layer_count; j++)
 		{
-			AseFrame frame = ase.frames[i];
+			AseLayer layer = ase->layers[j];
 
-			for (int j = 0; j < frame.cel_count; j++)
+			free((void *)layer.name);
+
+			for (int i = 0; i < ase->layer_cel_count; i++)
 			{
-				AseCel cel = frame.cels[j];
-
-				if (!cel.active)
-					continue;
+				AseCel cel = layer.cels[i];
 
 				UnloadTexture(cel.texture);
 			}
 
-			free((void *)frame.cels);
-		}
-	}
-
-	if (ase.flags & ASEPRITE_LOAD_LAYERS)
-	{
-		for (int j = 0; j < ase.layer_count; j++)
-		{
-			AseLayer layer = ase.layers[j];
-
-			free((void *)layer.name);
+			free((void *)layer.cels);
 		}
 
-		free((void *)ase.layers);
+		free((void *)ase->layers);
 	}
 
-	if (ase.flags & ASEPRITE_LOAD_TAGS)
+	if (ase->flags & ASEPRITE_LOAD_TAGS)
 	{
-		for (int i = 0; i < ase.tag_count; i++)
+		for (int i = 0; i < ase->tag_count; i++)
 		{
-			AseTag tag = ase.tags[i];
+			AseTag tag = ase->tags[i];
 
 			free((void *)tag.name);
 		}
 
-		free((void *)ase.tags);
+		free((void *)ase->tags);
 	}
 
-	if (ase.flags & ASEPRITE_LOAD_PALETTE)
+	if (ase->flags & ASEPRITE_LOAD_PALETTE)
 	{
-		free((void *)ase.palette);
+		free((void *)ase->palette);
 	}
 
-	free((void *)ase.frames);
+	free((void *)ase->frames);
+
+	*ase = (Aseprite){0};
+}
+
+int IsAsepriteReady(Aseprite ase)
+{
+	return ase.flags;
 }
 
 int _aseprite_flags_check(AseLoadFlags flags, AseLoadFlags check)
@@ -294,63 +325,84 @@ int _aseprite_flags_check(AseLoadFlags flags, AseLoadFlags check)
 
 // Motionless draw functions
 
-void DrawAseprite(Aseprite ase, int frame, float x, float y, Color tint)
+void DrawFrame(Aseprite ase, int frame, float x, float y, Color tint)
 {
-	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+	if (!(ase.flags & ASEPRITE_LOAD_FRAMES))
 		return;
 
-	if (frame >= ase.frame_count)
+	if (frame < 0 || frame >= ase.frame_count)
 		return;
 
 	Texture2D texture = ase.frames_texture;
 	Rectangle source = ase.frames[frame].source;
 
-	DrawTextureRec(texture, source, (Vector2){x, y}, WHITE);
+	DrawTextureRec(texture, source, (Vector2){x, y}, tint);
 }
-void DrawAsepriteV(Aseprite ase, int frame, Vector2 pos, Color tint)
+void DrawFrameV(Aseprite ase, int frame, Vector2 position, Color tint)
 {
-	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+	if (!(ase.flags & ASEPRITE_LOAD_FRAMES))
 		return;
 
-	if (frame >= ase.frame_count)
+	if (frame < 0 || frame >= ase.frame_count)
 		return;
 
 	Texture2D texture = ase.frames_texture;
 	Rectangle source = ase.frames[frame].source;
 
-	DrawTextureRec(texture, source, pos, WHITE);
+	DrawTextureRec(texture, source, position, tint);
 }
-void DrawAsepriteEx(Aseprite ase, int frame, Vector2 pos, float rotation, float scale, Color tint)
+void DrawFrameEx(Aseprite ase, int frame, Vector2 position, float scale, float rotation, Color tint)
 {
-	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+	if (!(ase.flags & ASEPRITE_LOAD_FRAMES))
 		return;
 
-	if (frame >= ase.frame_count)
+	if (frame < 0 || frame >= ase.frame_count)
 		return;
 
 	Texture2D texture = ase.frames_texture;
 	Rectangle source = ase.frames[frame].source;
+
+	if (scale < 0)
+	{
+		source.width *= -1;
+		source.height *= -1;
+	}
 
 	Rectangle dest = 
 	{
-		.x = pos.x,
-		.y = pos.y,
+		.x = position.x,
+		.y = position.y,
 		.width = source.width * scale,
 		.height = source.height * scale
 	};
 
-	DrawTexturePro(texture, source, dest, (Vector2){0,0}, rotation, WHITE);
+	DrawTexturePro(texture, source, dest, (Vector2){0,0}, rotation, tint);
 }
-void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawFrameScale(Aseprite ase, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
-	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_FRAMES))
+	if (!(ase.flags & ASEPRITE_LOAD_FRAMES))
 		return;
 
-	if (frame >= ase.frame_count)
+	if (frame < 0 || frame >= ase.frame_count)
 		return;
 
 	Texture2D texture = ase.frames_texture;
 	Rectangle source = ase.frames[frame].source;
+
+	origin.x *= x_scale;
+	origin.y *= y_scale;
+
+	if (x_scale < 0)
+	{
+		source.width *= -1;
+		origin.x *= -1;
+	}
+	
+	if (y_scale < 0)
+	{
+		source.height *= -1;
+		origin.y *= -1;
+	}
 
 	Rectangle dest = 
 	{
@@ -360,17 +412,173 @@ void DrawAsepriteScale(Aseprite ase, int frame, Vector2 position, Vector2 origin
 		.height = source.height * y_scale
 	};
 
+	DrawTexturePro(texture, source, dest, origin, rotation, tint);
+}
+
+void DrawCel(Aseprite ase, int layer, int frame, float x, float y, Color tint)
+{
+	if (!(ase.flags & ASEPRITE_LOAD_LAYERS))
+		return;
+
+	if (layer < 0 || layer >= ase.layer_count)
+		return;
+
+	if (frame < 0 || frame >= ase.layer_cel_count)
+		return;
+	
+	AseLayer ase_layer = ase.layers[layer];
+	AseCel cel = ase_layer.cels[frame];
+
+	if (!cel.active)
+		return;
+
+	Texture2D texture = cel.texture;
+	Rectangle source = cel.visible_area;
+	Vector2 position = {cel.x_offset + x, cel.y_offset + y};
+	tint.a *= ase_layer.opacity * cel.opacity;
+
+	DrawTextureRec(texture, source, position, tint);
+}
+void DrawCelV(Aseprite ase, int layer, int frame, Vector2 position, Color tint)
+{
+	if (!(ase.flags & ASEPRITE_LOAD_LAYERS))
+		return;
+
+	if (layer < 0 || layer >= ase.layer_count)
+		return;
+
+	if (frame < 0 || frame >= ase.layer_cel_count)
+		return;
+	
+	AseLayer ase_layer = ase.layers[layer];
+	AseCel cel = ase_layer.cels[frame];
+
+	if (!cel.active)
+		return;
+
+	Texture2D texture = cel.texture;
+	Rectangle source = cel.visible_area;
+
+	position.x += cel.x_offset;
+	position.y += cel.y_offset;
+
+	tint.a *= ase_layer.opacity * cel.opacity;
+
+	DrawTextureRec(texture, source, position, tint);
+}
+void DrawCelEx(Aseprite ase, int layer, int frame, Vector2 position, float scale, float rotation, Color tint)
+{
+	if (!(ase.flags & ASEPRITE_LOAD_LAYERS))
+		return;
+
+	if (layer < 0 || layer >= ase.layer_count)
+		return;
+
+	if (frame < 0 || frame >= ase.layer_cel_count)
+		return;
+	
+	AseLayer ase_layer = ase.layers[layer];
+	AseCel cel = ase_layer.cels[frame];
+
+	if (!cel.active)
+		return;
+
+	Texture2D texture = cel.texture;
+	Rectangle source = cel.visible_area;
+
+	Vector2 origin;
+
+	if (scale < 0)
+	{
+		origin.x = (ase.width - cel.x_offset - source.width) * scale;
+		origin.y = (ase.height - cel.y_offset - source.height) * scale;
+
+		source.width *= -1;
+		source.height *= -1;
+	}
+	else
+	{
+		origin.x = -cel.x_offset * scale;
+		origin.y = -cel.y_offset * scale;
+	}
+
+	Rectangle dest = 
+	{
+		.x = position.x,
+		.y = position.y,
+		.width = source.width * scale,
+		.height = source.height * scale
+	};
+
+	tint.a *= ase_layer.opacity * cel.opacity;
+
+	DrawTexturePro(texture, source, dest, origin, rotation, tint);
+}
+void DrawCelScale(Aseprite ase, int layer, int frame, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+{
+	if (!(ase.flags & ASEPRITE_LOAD_LAYERS))
+		return;
+
+	if (layer < 0 || layer >= ase.layer_count)
+		return;
+
+	if (frame < 0 || frame >= ase.layer_cel_count)
+		return;
+	
+	AseLayer ase_layer = ase.layers[layer];
+	AseCel cel = ase_layer.cels[frame];
+
+	if (!cel.active)
+		return;
+
+	Texture2D texture = cel.texture;
+	Rectangle source = cel.visible_area;
+
 	origin.x *= x_scale;
+
+	if (x_scale < 0)
+	{
+
+		origin.x = -origin.x + (ase.width - cel.x_offset - source.width) * x_scale;
+
+		source.width *= -1;
+	}
+	else
+	{
+		origin.x += -cel.x_offset * x_scale;
+	}
+
 	origin.y *= y_scale;
 
-	DrawTexturePro(texture, source, dest, origin, rotation, WHITE);
+	if (y_scale < 0)
+	{
+		origin.y = -origin.y + (ase.height - cel.y_offset - source.height) * y_scale;
+
+		source.height *= -1;
+	}
+	else
+	{
+		origin.y += -cel.y_offset * y_scale;
+	}
+
+	Rectangle dest = 
+	{
+		.x = position.x,
+		.y = position.y,
+		.width = source.width * x_scale,
+		.height = source.height * y_scale
+	};
+
+	tint.a *= ase_layer.opacity * cel.opacity;
+
+	DrawTexturePro(texture, source, dest, origin, rotation, tint);
 }
 
 // Animation Tag functions
 
-AseAnimTag _create_animation_from_tag(Aseprite ase, AseTag tag)
+AseAnimation _create_animation_from_tag(Aseprite *ase, AseTag tag)
 {
-	AseAnimTag anim =
+	AseAnimation anim =
 	{
 		.ase = ase,
 		.ready = 1,
@@ -396,16 +604,41 @@ AseAnimTag _create_animation_from_tag(Aseprite ase, AseTag tag)
 	return anim;
 }
 
-AseAnimTag CreateAnimationTag(Aseprite ase, const char *tag_name)
+AseAnimation CreateSimpleAnimation(Aseprite *ase)
 {
-	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
-		return (AseAnimTag){0};
+	if (ase == NULL)
+		return (AseAnimation){0};
+	
+	AseAnimation anim =
+	{
+		.ase = ase,
+		.ready = 1,
+
+		.current_frame = 0,
+
+		.running = 1,
+		.speed = 1,
+		.timer = 0,
+
+		.tag_mode = 0,
+		.current_tag = {0}
+	};
+
+	return anim;
+}
+AseAnimation CreateAnimationTag(Aseprite *ase, const char *tag_name)
+{
+	if (ase == NULL)
+		return (AseAnimation){0};
+
+	if (!_aseprite_flags_check(ase->flags, ASEPRITE_LOAD_TAGS))
+		return (AseAnimation){0};
 
 	// Please don't name two tags with the same name.
 
-	for (int i = 0; i < ase.tag_count; i++)
+	for (int i = 0; i < ase->tag_count; i++)
 	{
-		AseTag current_tag = ase.tags[i];
+		AseTag current_tag = ase->tags[i];
 		const char *current_tag_name = current_tag.name;
 
 		// Is this safe?
@@ -418,19 +651,30 @@ AseAnimTag CreateAnimationTag(Aseprite ase, const char *tag_name)
 
 	// If no tags are found, an empty tag is returned as default.
 
-	return (AseAnimTag){0};
+	return (AseAnimation){0};
 }
-AseAnimTag CreateAnimationTagId(Aseprite ase, int tag_id)
+AseAnimation CreateAnimationTagId(Aseprite *ase, int tag_id)
 {
-	if (!_aseprite_flags_check(ase.flags, ASEPRITE_LOAD_TAGS))
-		return (AseAnimTag){0};
+	if (ase == NULL)
+		return (AseAnimation){0};
 
-	AseTag tag = ase.tags[tag_id];
+	if (!_aseprite_flags_check(ase->flags, ASEPRITE_LOAD_TAGS))
+		return (AseAnimation){0};
+
+	AseTag tag = ase->tags[tag_id];
 
 	return _create_animation_from_tag(ase, tag);
 }
 
-void SetAnimTagSpeed(AseAnimTag *anim, float speed)
+int IsAnimationReady(AseAnimation anim)
+{
+	if (anim.ase == NULL)
+		return 0;
+
+	return anim.ready;
+}
+
+void SetAnimationSpeed(AseAnimation *anim, float speed)
 {
 	P_ANIMATION_CHECK(anim)
 	
@@ -439,26 +683,27 @@ void SetAnimTagSpeed(AseAnimTag *anim, float speed)
 
 	anim->speed = speed;
 }
-void PlayAnimTag(AseAnimTag *anim)
+
+void PlayAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
 	anim->running = 1;
 }
-void StopAnimTag(AseAnimTag *anim)
+void StopAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
 	anim->running = 0;
 }
-void PauseAnimTag(AseAnimTag *anim)
+void PauseAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
 	anim->running = !anim->running;
 }
 
-void _advance_animation_tag_mode(AseAnimTag *anim)
+void _advance_animation_tag_mode(AseAnimation *anim)
 {
 	switch (anim->current_tag.anim_direction)
 	{
@@ -502,19 +747,21 @@ void _advance_animation_tag_mode(AseAnimTag *anim)
 
 	if (anim->current_tag.repeat == 0 && !anim->current_tag.loop)	// If the tag loops are exhausted
 	{
+		Aseprite ase = *anim->ase;
+
 		int next_tag_id = anim->current_tag.id + 1;
 		
-		if (next_tag_id >= anim->ase.tag_count)
+		if (next_tag_id >= ase.tag_count)
 			next_tag_id = 0;
 
 		anim->current_tag.id = next_tag_id;
 
 		anim->current_frame = anim->current_tag.to_frame + 1;
 
-		if (anim->current_frame >= anim->ase.frame_count)
+		if (anim->current_frame >= ase.frame_count)
 			anim->current_frame = 0;
 		
-		AseTag next_tag = anim->ase.tags[next_tag_id];
+		AseTag next_tag = ase.tags[next_tag_id];
 
 		anim->current_tag.anim_direction = next_tag.anim_direction;
 		anim->current_tag.ping_pong = next_tag.ping_pong;
@@ -541,7 +788,7 @@ void _advance_animation_tag_mode(AseAnimTag *anim)
 	}
 }
 
-void AdvanceAnimTag(AseAnimTag *anim)
+void AdvanceAnimation(AseAnimation *anim)
 {
 	P_ANIMATION_CHECK(anim)
 
@@ -550,7 +797,7 @@ void AdvanceAnimTag(AseAnimTag *anim)
 	if (delta_time == 0 || anim->speed == 0 || !anim->running)
 		return;
 
-	Aseprite ase = anim->ase;
+	Aseprite ase = *anim->ase;
 
 	int frame = anim->current_frame;
 
@@ -572,7 +819,7 @@ void AdvanceAnimTag(AseAnimTag *anim)
 
 	anim->current_frame++;
 
-	if (anim->current_frame >= anim->ase.frame_count)
+	if (anim->current_frame >= ase.frame_count)
 		anim->current_frame = 0;
 	
 	if (anim->current_tag.id != -1 && anim->current_frame == anim->current_tag.from_frame)
@@ -591,19 +838,52 @@ void AdvanceAnimTag(AseAnimTag *anim)
 	}
 }
 
-void DrawAnimTag(AseAnimTag anim, float x, float y, Color tint)
+void DrawAnimation(AseAnimation anim, float x, float y, Color tint)
 {
-	DrawAseprite(anim.ase, anim.current_frame, x, y, tint);
+	ANIMATION_CHECK(anim)
+	
+	DrawFrame(*anim.ase, anim.current_frame, x, y, tint);
 }
-void DrawAnimTagV(AseAnimTag anim, Vector2 pos, Color tint)
+void DrawAnimationV(AseAnimation anim, Vector2 position, Color tint)
 {
-	DrawAsepriteV(anim.ase, anim.current_frame, pos, tint);
+	ANIMATION_CHECK(anim)
+	
+	DrawFrameV(*anim.ase, anim.current_frame, position, tint);
 }
-void DrawAnimTagEx(AseAnimTag anim, Vector2 pos, float rotation, float scale, Color tint)
+void DrawAnimationEx(AseAnimation anim, Vector2 position, float rotation, float scale, Color tint)
 {
-	DrawAsepriteEx(anim.ase, anim.current_frame, pos, rotation, scale, tint);
+	ANIMATION_CHECK(anim)
+	
+	DrawFrameEx(*anim.ase, anim.current_frame, position, rotation, scale, tint);
 }
-void DrawAnimTagScale(AseAnimTag anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+void DrawAnimationScale(AseAnimation anim, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
 {
-	DrawAsepriteScale(anim.ase, anim.current_frame, position, origin, x_scale, y_scale, rotation, tint);
+	ANIMATION_CHECK(anim)
+
+	DrawFrameScale(*anim.ase, anim.current_frame, position, origin, x_scale, y_scale, rotation, tint);
+}
+
+void DrawAnimLayer(AseAnimation anim, int layer, float x, float y, Color tint)
+{
+	ANIMATION_CHECK(anim)
+	
+	DrawCel(*anim.ase, layer, anim.current_frame, x, y, tint);
+}
+void DrawAnimLayerV(AseAnimation anim, int layer, Vector2 position, Color tint)
+{
+	ANIMATION_CHECK(anim)
+	
+	DrawCelV(*anim.ase, layer, anim.current_frame, position, tint);
+}
+void DrawAnimLayerEx(AseAnimation anim, int layer, Vector2 position, float scale, float rotation, Color tint)
+{
+	ANIMATION_CHECK(anim)
+	
+	DrawCelEx(*anim.ase, layer, anim.current_frame, position, scale, rotation, tint);
+}
+void DrawAnimLayerScale(AseAnimation anim, int layer, Vector2 position, Vector2 origin, float x_scale, float y_scale, float rotation, Color tint)
+{
+	ANIMATION_CHECK(anim)
+	
+	DrawCelScale(*anim.ase, layer, anim.current_frame, position, origin, x_scale, y_scale, rotation, tint);
 }
