@@ -115,7 +115,7 @@ typedef struct AseAnimation
 
 Aseprite LoadAsepriteFromFile(const char *filename, AseLoadFlags flags);
 Aseprite LoadAsepriteFromMemory(const void *data, int size, AseLoadFlags flags);
-void UnloadAseprite(Aseprite *ase);
+void UnloadAseprite(Aseprite ase);
 
 int IsAsepriteReady(Aseprite ase);
 
