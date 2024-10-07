@@ -8,35 +8,35 @@ A small C library which allows the user to import and draw [Aseprite](https://ww
 
 int main()
 {
-  InitWindow(640, 360, "Aseprite example");
-  SetTargetFPS(60);
+	InitWindow(640, 360, "Aseprite example");
+	SetTargetFPS(60);
 
-  // Load an Aseprite file
-  Aseprite frog = LoadAsepriteFromFile("sprites/frog.ase", ASEPRITE_LOAD_FRAMES | ASEPRITE_LOAD_TAGS);
+	// Load an Aseprite file
+	Aseprite frog = LoadAsepriteFromFile("sprites/frog.ase", ASEPRITE_LOAD_ALL);
 
-  // Create an animation from an Aseprite file tag
-  AseAnimTag tongue = CreateAnimTag(frog, "Tongue");
+	// Create an animation from an Aseprite file tag
+	AseAnimation tongue = CreateAnimationTag(&frog, "Tongue");
 
-  while (!WindowShouldClose())
-  {
-    // Update animation
-    AdvanceAnimTag(&tongue);
+	while (!WindowShouldClose())
+	{
+		// Update animation
+		AdvanceAnimation(&tongue);
 
-    BeginDrawing();
-    ClearBackground(WHITE);
+		BeginDrawing();
+		ClearBackground(WHITE);
 
-    // Draw the current animation frame to the screen
-    DrawAnimTag(tongue, 312, 172, WHITE);
+		// Draw the current animation frame to the screen
+		DrawAnimation(tongue, 312, 172, WHITE);
     
-    EndDrawing();
-  }
+		EndDrawing();
+	}
 
-  // Unload the Aseprite file
-  UnloadAseprite(frog);
+	// Unload the Aseprite file
+	UnloadAseprite(frog);
 
-  CloseWindow();
+	CloseWindow();
 
-  return 0;
+	return 0;
 }
 ```
 
