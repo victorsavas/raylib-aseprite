@@ -46,7 +46,7 @@ Simply include cute_aseprite.h, aseprite.c and aseprite.h in your source files a
 The [cute_aseprite.h](https://github.com/RandyGaul/cute_headers/blob/master/cute_aseprite.h) header file used to parse .ase and .aseprite files was provided by [Randy Gaul's cute_headers repository](https://github.com/RandyGaul/cute_headers/tree/master).
 
 # cheatsheet
-``` c
+``` h
 // Load functions.
 
 Aseprite LoadAsepriteFromFile(const char *filename, AseLoadFlags flags);
