@@ -47,3 +47,4 @@ The [cute_aseprite.h](https://github.com/RandyGaul/cute_headers/blob/master/cute
 
 # limitations
 Randy Gaul's cute_aseprite.h header has no support for tilesets. Attempting to load a file with tileset data will result in an error. 
+It also only supports the normal blending mode. Layers will always be only displayed in the normal blending mode.
